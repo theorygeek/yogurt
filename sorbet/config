@@ -1,2 +1,8 @@
 --dir
 .
+--ignore
+/vendor
+--ignore
+/spec
+--ignore
+/bin
