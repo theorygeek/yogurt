@@ -1,10 +1,16 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'pry'
+require 'sorbet-runtime'
 require 'zeitwerk'
-loader = Zeitwerk::Loader.for_gem
-loader.inflector.inflect({ 'graphql_client' => 'GraphQLClient' })
-loader.setup
 
 module GraphQLClient; end
-loader.eager_load
+
+loader = Zeitwerk::Loader.new
+loader.inflector.inflect({ 
+  'graphql_client' => 'GraphQLClient',
+  'version' => 'VERSION',
+})
+loader.push_dir(__dir__)
+loader.setup
