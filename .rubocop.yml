@@ -1,0 +1,109 @@
+---
+require:
+  - rubocop-sorbet
+AllCops:
+  NewCops: enable
+  Exclude:
+    - bin/**/*
+    - sorbet/**/*
+    - vendor/**/*
+Layout/ArgumentAlignment:
+  EnforcedStyle: with_fixed_indentation
+Layout/CaseIndentation:
+  EnforcedStyle: end
+Layout/EndAlignment:
+  EnforcedStyleAlignWith: start_of_line
+Layout/FirstHashElementIndentation:
+  EnforcedStyle: consistent
+Layout/LineLength:
+  Enabled: false
+Layout/MultilineMethodCallBraceLayout:
+  EnforcedStyle: symmetrical
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+Layout/ParameterAlignment:
+  EnforcedStyle: with_fixed_indentation
+Layout/RescueEnsureAlignment:
+  Enabled: false
+Layout/SpaceAroundEqualsInParameterDefault:
+  EnforcedStyle: no_space
+Layout/SpaceInsideBlockBraces:
+  EnforcedStyle: no_space
+  SpaceBeforeBlockParameters: false
+Lint/AmbiguousBlockAssociation:
+  Exclude:
+    - spec/**/*_spec.rb
+Lint/ConstantDefinitionInBlock:
+  Enabled: false
+Lint/IneffectiveAccessModifier:
+  Enabled: false
+Lint/MissingSuper:
+  Enabled: false
+Lint/MixedRegexpCaptureTypes:
+  Enabled: false
+Lint/RaiseException:
+  Enabled: true
+Lint/StructNewOverride:
+  Enabled: true
+Lint/UnusedMethodArgument:
+  Enabled: false
+Lint/UselessMethodDefinition:
+  Enabled: false
+Metrics:
+  Enabled: false
+Naming/MethodParameterName:
+  Enabled: false
+Naming/RescuedExceptionsVariableName:
+  Enabled: false
+Sorbet/ConstantsFromStrings:
+  Enabled: false
+Sorbet/FalseSigil:
+  Enabled: false
+Sorbet/IgnoreSigil:
+  Enabled: true
+  Include:
+    - spec/**/*.rb
+    - Rakefile
+    - tasks/**/*.rake
+Sorbet/StrictSigil:
+  Enabled: true
+  Exclude:
+    - spec/**/*.rb
+    - Rakefile
+    - tasks/**/*.rake
+Style/AccessModifierDeclarations:
+  EnforcedStyle: inline
+Style/AccessorGrouping:
+  Enabled: false
+Style/Documentation:
+  Enabled: false
+Style/DoubleNegation:
+  Enabled: false
+Style/GuardClause:
+  Enabled: false
+Style/HashEachMethods:
+  Enabled: true
+Style/HashTransformKeys:
+  Enabled: true
+Style/HashTransformValues:
+  Enabled: true
+Style/ModuleFunction:
+  Enabled: false
+Style/MultipleComparison:
+  Enabled: false
+Style/NegatedIf:
+  Enabled: false
+Style/OptionalBooleanParameter:
+  Enabled: false
+Style/RescueStandardError:
+  Enabled: false
+Style/SlicingWithRange:
+  Enabled: false
+Style/StringConcatenation:
+  Enabled: false
+Style/StringLiterals:
+  Enabled: false
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: comma
+Style/TrivialAccessors:
+  Enabled: false

@@ -1,6 +1,8 @@
 # typed: strict
+# frozen_string_literal: true
+
 require "bundler/setup"
-require "graphql/client"
+require "graphql_client"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

@@ -1,0 +1,8 @@
+# typed: strict
+# frozen_string_literal: true
+
+# lib/Rakefile
+require 'graphql/client'
+
+path = File.expand_path(__dir__)
+Dir.glob("#{path}/tasks/**/*.rake").each {|f| import f}
