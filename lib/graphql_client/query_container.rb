@@ -56,13 +56,14 @@ module GraphQLClient
       query = GraphQL::Query.new(schema, query_text)
       validation_result = validator.validate(query)
       validation_result[:errors].each do |error|
-        raise ValidationError, error.message
+        Kernel.raise ValidationError, error.message
       end
 
       declared_queries << QueryDeclaration.new(
         container: container,
         constant_name: constant_name,
-        query_text: query_text
+        query_text: query_text,
+        schema: schema,
       )
     end
   end

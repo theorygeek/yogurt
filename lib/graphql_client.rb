@@ -26,7 +26,9 @@ module GraphQLClient
     ).void
   end
   def self.load_schema(schema: nil, path: nil)
-    schema = File.read(path) 
+    if path
+      schema = File.read(path)
+    end
 
     if schema.nil?
       raise ArgumentError, "You must provide either `schema:` or `path:` to GraphQLClient.load_schema"
