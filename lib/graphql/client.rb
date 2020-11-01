@@ -1,1 +1,6 @@
-module GraphQL::Client; end
+# typed: strict
+# frozen_string_literal: true
+
+module GraphQL::Client
+
+end

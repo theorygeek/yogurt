@@ -1,7 +1,8 @@
 
 lib = File.expand_path("../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-requirek "graphql"
+require 'graphql'
+require 'graphql/client'
 
 Gem::Specification.new do |spec|
   spec.name = "graphql-sorbet-client"
