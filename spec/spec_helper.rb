@@ -1,5 +1,5 @@
 require "bundler/setup"
-require "graphql/sorbet/client"
+require "graphql/client"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

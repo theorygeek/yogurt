@@ -1,11 +1,11 @@
 
 lib = File.expand_path("../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require "graphql/sorbet/client/version"
+requirek "graphql"
 
 Gem::Specification.new do |spec|
   spec.name = "graphql-sorbet-client"
-  spec.version = Graphql::Sorbet::Client::VERSION
+  spec.version = GraphQL::Client::VERSION
   spec.authors = ["Ryan Foster"]
   spec.email = ["theorygeek@gmail.com"]
 
@@ -42,4 +42,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency('bundler', '~> 1.17')
   spec.add_development_dependency('rake', '~> 10.0')
   spec.add_development_dependency('rspec', '~> 3.0')
+  spec.add_development_dependency('sorbet', '~> 0.5')
 end
