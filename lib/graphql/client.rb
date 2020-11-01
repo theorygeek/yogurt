@@ -1,0 +1,1 @@
+module GraphQL::Client; end
