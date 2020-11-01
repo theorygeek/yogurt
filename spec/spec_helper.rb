@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
+Bundler.require(:default, :development)
 require "graphql_client"
 
 RSpec.configure do |config|
