@@ -22,7 +22,7 @@ Gem::Specification.new do |spec|
 
     spec.metadata["homepage_uri"] = spec.homepage
     spec.metadata["source_code_uri"] = spec.homepage
-    spec.metadata["changelog_uri"] = "https://github.com/theorygeek/graphql-sorbet-client"
+    spec.metadata["changelog_uri"] = "https://github.com/theorygeek/graphql-sorbet-client/blob/master/CHANGELOG.md"
   end
 
   # Specify which files should be added to the gem when it is released.
