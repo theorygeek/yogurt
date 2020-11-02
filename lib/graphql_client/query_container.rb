@@ -59,6 +59,12 @@ module GraphQLClient
         Kernel.raise ValidationError, error.message
       end
 
+      if query.operations.key?(nil)
+        Kernel.raise("You must provide a name for each of the operations in your GraphQL query.")
+      elsif query.operations.none?
+        Kernel.raise("Your query did not define any operations.")
+      end
+
       declared_queries << QueryDeclaration.new(
         container: container,
         constant_name: constant_name,

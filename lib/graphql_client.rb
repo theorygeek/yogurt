@@ -7,6 +7,8 @@ require 'zeitwerk'
 
 module GraphQLClient
   extend T::Sig
+  
+  GRAPHQL_SCHEMA = T.type_alias {T.class_of(GraphQL::Schema)}
 
   sig {returns(T.nilable(T.class_of(GraphQL::Schema)))}
   def self.default_schema
@@ -15,26 +17,11 @@ module GraphQLClient
 
   sig {params(schema: T.nilable(T.class_of(GraphQL::Schema))).void}
   def self.default_schema=(schema)
+    if schema && schema.name.nil?
+      raise ArgumentError, "GraphQL schema must be assigned to a constant"
+    end
+
     @default_schema = T.let(schema, T.nilable(T.class_of(GraphQL::Schema)))
-  end
-
-  # Loads the schema and sets it as the default.
-  sig do
-    params(
-      schema: T.nilable(String),
-      path: T.nilable(String)
-    ).void
-  end
-  def self.load_schema(schema: nil, path: nil)
-    if path
-      schema = File.read(path)
-    end
-
-    if schema.nil?
-      raise ArgumentError, "You must provide either `schema:` or `path:` to GraphQLClient.load_schema"
-    end
-
-    self.default_schema = GraphQL::Schema.from_definition(schema)
   end
 end
 
