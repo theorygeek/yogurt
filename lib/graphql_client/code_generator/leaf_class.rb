@@ -26,7 +26,7 @@ module GraphQLClient
               @result = T.let(result, T::Hash[String, T.untyped])
             end
 
-            sig {override.returns(T.nilable(T::Hash[String, T.untyped]))}
+            sig {override.returns(T::Hash[String, T.untyped])}
             def raw_result
               @result
             end

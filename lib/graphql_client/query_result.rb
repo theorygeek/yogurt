@@ -11,7 +11,7 @@ module GraphQLClient
 
     interface!
 
-    sig {abstract.returns(T.nilable(T::Hash[String, T.untyped]))}
+    sig {abstract.returns(T::Hash[String, T.untyped])}
     def raw_result; end
   end
 end

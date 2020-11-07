@@ -29,13 +29,13 @@ module GraphQLClient
             self.operation_name = #{operation_name.inspect}
             self.declaration = #{query_container.name}.fetch_query(#{operation_name.inspect})
 
-            sig {params(data: T::Hash[String, T.untyped], errors: T.nilable(T::Hash[String, T.untyped])).void}
+            sig {params(data: T::Hash[String, T.untyped], errors: T.nilable(T::Array[T::Hash[String, T.untyped]])).void}
             def initialize(data, errors)
               @result = T.let(data, T::Hash[String, T.untyped])
-              @errors = T.let(errors, T.nilable(T::Hash[String, T.untyped]))
+              @errors = T.let(errors, T.nilable(T::Array[T::Hash[String, T.untyped]]))
             end
 
-            sig {override.returns(T.nilable(T::Hash[String, T.untyped]))}
+            sig {override.returns(T::Hash[String, T.untyped])}
             def raw_result
               @result
             end
