@@ -11,7 +11,7 @@ module GraphQLClient
 
     sig {params(other: Module).void}
     def self.included(other)
-      Kernel.raise("You need to `extend GraphQLClient::QueryContainer`, you cannot use `include`.")
+      Kernel.raise(ValidationError, "You need to `extend GraphQLClient::QueryContainer`, you cannot use `include`.")
     end
 
     sig {params(other: Module).void}
@@ -47,31 +47,31 @@ module GraphQLClient
     def declare_query(query_text, schema: nil)
       schema ||= GraphQLClient.default_schema
       if schema.nil?
-        Kernel.raise("You need to either provide a `schema:` to declare_query, or set GraphQLClient.default_schema")
+        Kernel.raise(ValidationError, "You need to either provide a `schema:` to declare_query, or set GraphQLClient.default_schema")
       end
 
       case (container = self)
       when Module
         # noop
       else
-        Kernel.raise("You need to `extend GraphQLClient::QueryContainer`, you cannot use `include`.")
+        Kernel.raise(ValidationError, "You need to `extend GraphQLClient::QueryContainer`, you cannot use `include`.")
       end
 
       if container.name.nil?
-        Kernel.raise("Query containers must be classes or modules that are assigned to constants.")
+        Kernel.raise(ValidationError, "Query containers must be classes or modules that are assigned to constants.")
       end
 
       validator = GraphQL::StaticValidation::Validator.new(schema: schema)
       query = GraphQL::Query.new(schema, query_text)
       validation_result = validator.validate(query)
       validation_result[:errors].each do |error|
-        Kernel.raise ValidationError, error.message
+        Kernel.raise(ValidationError, error.message)
       end
 
       if query.operations.key?(nil)
-        Kernel.raise("You must provide a name for each of the operations in your GraphQL query.")
+        Kernel.raise(ValidationError, "You must provide a name for each of the operations in your GraphQL query.")
       elsif query.operations.none?
-        Kernel.raise("Your query did not define any operations.")
+        Kernel.raise(ValidationError, "Your query did not define any operations.")
       end
 
       declared_queries << QueryDeclaration.new(

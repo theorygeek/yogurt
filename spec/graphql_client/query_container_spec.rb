@@ -17,7 +17,7 @@ RSpec.describe GraphQLClient::QueryContainer do
     declaration = FakeContainer.declared_queries[0]
     expect(declaration).to_not be nil
     expect(declaration.container).to eq FakeContainer
-    expect(declaration.constant_name).to eq :Viewer
+    expect(declaration.operations).to eq ['Foobar']
     expect(declaration.query_text).to eq query_text
   end
 

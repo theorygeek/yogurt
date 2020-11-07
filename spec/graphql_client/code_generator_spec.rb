@@ -66,7 +66,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     type_check(generator.contents)
   end
 
-  it "handles arrays" do
+  it "handles arrays and nullable values" do
     query_text = <<~'GRAPHQL'
       query SomeQuery {
         codesOfConduct {
