@@ -1,18 +1,7 @@
 # typed: ignore
 # frozen_string_literal: true
 
-require 'open3'
 RSpec.describe GraphQLClient::CodeGenerator do
-  def type_check(code)
-    command = %w[bundle exec srb typecheck]
-    command.concat(["-e", code])
-    out, err, st = Open3.capture3(*command)
-
-    expect(err).to eq "No errors! Great job.\n"
-    expect(st).to be_exited
-    expect(st).to be_success
-  end
-
   it "generates code for basic queries" do
     query_text = <<~'GRAPHQL'
       query SomeQuery {
@@ -54,30 +43,28 @@ RSpec.describe GraphQLClient::CodeGenerator do
     type_check(generator.contents)
   end
 
-  # it "handles scalar converters" do 
-  #   GraphQLClient.register_scalar(
-  #     FakeSchema,
-  #     "DateTime",
-  #     T.type_alias {Time},
-  #     -> (raw_value) {Time.iso8601(raw_value)}
-  #   )
+  it "handles scalar converters" do
+    GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
 
-  #   query_text = <<~'GRAPHQL'
-  #     query SomeQuery {
-  #       viewer {
-  #         createdAt
-  #       }
-  #     }
-  #   GRAPHQL
+    query_text = <<~'GRAPHQL'
+      query SomeQuery {
+        viewer {
+          createdAt
+        }
+      }
+    GRAPHQL
 
-  #   FakeContainer.declare_query(query_text)
-  #   generator = GraphQLClient::CodeGenerator.new(FakeSchema)
-  #   generator.generate(FakeContainer.declared_queries[0])
+    FakeContainer.declare_query(query_text)
+    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator.generate(FakeContainer.declared_queries[0])
     
-  #   viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
-  #   created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
+    viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
+    created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
     
-  #   expect(created_at_method.signature).to eq "Time"
-  #   binding.pry
-  # end
+    expect(created_at_method.signature).to eq "Time"
+    expect(created_at_method.body).to eq 'GraphQLClient::Converters::Time.convert(raw_result["createdAt"])'
+    type_check(generator.contents)
+
+    puts (generator.formatted_contents)
+  end
 end

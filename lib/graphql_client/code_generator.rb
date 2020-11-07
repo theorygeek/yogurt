@@ -19,7 +19,7 @@ module GraphQLClient
     def initialize(schema)
       @schema = T.let(schema, GRAPHQL_SCHEMA)
       @enums = T.let({}, T::Hash[String, String])
-      @scalars = T.let(GraphQLClient.scalar_converters(schema), T::Hash[String, ScalarConverter])
+      @scalars = T.let(GraphQLClient.scalar_converters(schema), T::Hash[String, SCALAR_CONVERTER])
       @classes = T.let({}, T::Hash[String, DefinedClass])
     end
 
@@ -288,18 +288,16 @@ module GraphQLClient
       )
     end
 
-    sig {params(scalar_converter: ScalarConverter).returns(TypedExpression)}
+    sig {params(scalar_converter: SCALAR_CONVERTER).returns(TypedExpression)}
     def sorbet_type_from_scalar_converter(scalar_converter)
-      TypedExpression.new(
-        signature: scalar_converter.sorbet_type,
-        converter: <<~STRING.strip
-          scalar_converter = GraphQLClient.find_scalar_converter(
-            schema: #{scalar_converter.schema.name},
-            graphql_type: #{scalar_converter.graphql_type}
-          )
+      name = scalar_converter.name
+      if name.nil?
+        raise "Expected scalar converter to be assigned to a constant"
+      end
 
-          scalar_converter.converter.call(raw_value)
-        STRING
+      TypedExpression.new(
+        signature: scalar_converter.type_alias.name,
+        converter: "#{name}.convert(raw_value)"
       )
     end
 
@@ -346,17 +344,11 @@ module GraphQLClient
         end
       elsif graphql_type == GraphQL::Types::ISO8601Date
         converter_or_default(T.unsafe(GraphQL::Types::ISO8601Date).graphql_name) do
-          TypedExpression.new(
-            signature: "Date",
-            converter: 'Date.iso8601(T.let(raw_value, String))'
-          )
+          sorbet_type_from_scalar_converter(Converters::Date)
         end
       elsif graphql_type == GraphQL::Types::ISO8601DateTime
         converter_or_default(T.unsafe(GraphQL::Types::ISO8601DateTime).graphql_name) do
-          TypedExpression.new(
-            signature: "Time",
-            converter: 'Time.iso8601(T.let(raw_value, String))'
-          )
+          sorbet_type_from_scalar_converter(Converters::Time)
         end
       elsif graphql_type == GraphQL::Types::Int
         TypedExpression.new(
@@ -384,8 +376,8 @@ module GraphQLClient
         elsif graphql_type < GraphQL::Schema::Scalar
           converter_or_default(graphql_type.graphql_name) do
             TypedExpression.new(
-              signature: T.unsafe(GraphQLClient::RAW_SCALAR_TYPE).name,
-              converter: "T.let(raw_value, #{T.unsafe(GraphQLClient::RAW_SCALAR_TYPE).name})"
+              signature: T.unsafe(GraphQLClient::SCALAR_TYPE).name,
+              converter: "T.let(raw_value, #{T.unsafe(GraphQLClient::SCALAR_TYPE).name})"
             )
           end
         elsif graphql_type < GraphQL::Schema::Member

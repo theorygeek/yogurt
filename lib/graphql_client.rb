@@ -9,8 +9,8 @@ module GraphQLClient
   extend T::Sig
   
   GRAPHQL_SCHEMA = T.type_alias {T.class_of(GraphQL::Schema)}
-  RAW_SCALAR_TYPE = T.type_alias {T.any(::String, T::Boolean, ::Numeric)}
-  
+  SCALAR_TYPE = T.type_alias {T.any(::String, T::Boolean, Numeric)}
+
   sig {returns(T.nilable(T.class_of(GraphQL::Schema)))}
   def self.default_schema
     @default_schema
@@ -34,7 +34,9 @@ module GraphQLClient
     end
   end
 
-  sig {params(schema: GRAPHQL_SCHEMA).returns(T::Hash[String, ScalarConverter])}
+  SCALAR_CONVERTER = T.type_alias {T.all(Module, ScalarConverter)}
+
+  sig {params(schema: GRAPHQL_SCHEMA).returns(T::Hash[String, SCALAR_CONVERTER])}
   def self.scalar_converters(schema)
     if !registered_schemas.key?(schema)
       raise ArgumentError, "GraphQL Schema has not been registered."
@@ -45,7 +47,7 @@ module GraphQLClient
       T.nilable(
         T::Hash[
           GRAPHQL_SCHEMA,
-          T::Hash[String, ScalarConverter]
+          T::Hash[String, SCALAR_CONVERTER]
         ]
       )
     )
@@ -58,21 +60,19 @@ module GraphQLClient
     params(
       schema: GRAPHQL_SCHEMA,
       graphql_type_name: String,
-      type_alias: T::Types::Base,
-      converter: Proc,
+      converter: SCALAR_CONVERTER,
     ).void
   end
-  def self.register_scalar(schema, graphql_type_name, type_alias, converter)
+  def self.register_scalar(schema, graphql_type_name, converter)
     if !schema.types.key?(graphql_type_name)
       raise ArgumentError, "Schema does not contain the type #{graphql_type_name}"
     end
+
+    if converter.name.nil?
+      raise ArgumentError, "ScalarConverters must be assigned to constants"
+    end
     
-    scalar_converters(schema)[graphql_type_name] = ScalarConverter.new(
-      schema: schema,
-      graphql_type: graphql_type_name,
-      sorbet_type: type_alias.name,
-      converter: converter
-    )
+    scalar_converters(schema)[graphql_type_name] = converter
   end
 end
 

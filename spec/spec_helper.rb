@@ -4,6 +4,7 @@
 require "bundler/setup"
 Bundler.require(:default, :development)
 require "graphql_client"
+require_relative 'support/type_check'
 require_relative 'support/fake_executor'
 
 RSpec.configure do |config|
@@ -17,6 +18,7 @@ RSpec.configure do |config|
     c.syntax = :expect
   end
 
+  config.include(TypeCheck)
   config.before(:each) do |each|
     fake_schema = File.read(File.expand_path("./github_schema.graphql", __dir__))
     stub_const("FakeSchema", GraphQL::Schema.from_definition(fake_schema))
