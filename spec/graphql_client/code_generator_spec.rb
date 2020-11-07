@@ -64,7 +64,36 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(created_at_method.signature).to eq "Time"
     expect(created_at_method.body).to eq 'GraphQLClient::Converters::Time.convert(raw_result["createdAt"])'
     type_check(generator.contents)
+  end
 
-    puts (generator.formatted_contents)
+  it "handles arrays" do
+    query_text = <<~'GRAPHQL'
+      query SomeQuery {
+        codesOfConduct {
+          body
+          id
+          key
+          name
+          resourcePath
+          url
+        }
+      }
+    GRAPHQL
+
+    FakeContainer.declare_query(query_text)
+    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator.generate(FakeContainer.declared_queries[0])
+
+    query_class = generator.classes["FakeContainer::SomeQuery"]
+    codes_of_conduct = query_class.defined_methods.detect {|dm| dm.name == :codes_of_conduct}
+    expect(codes_of_conduct).to_not be_nil
+    expect(codes_of_conduct.signature).to eq "T.nilable(T::Array[T.nilable(FakeContainer::SomeQuery::CodesOfConduct)])"
+
+    subclass = generator.classes["FakeContainer::SomeQuery::CodesOfConduct"]
+    url_method = subclass.defined_methods.detect {|dm| dm.name == :url}
+    expect(url_method).to_not be_nil
+    expect(url_method.signature).to eq "T.nilable(T.any(Numeric, String, T::Boolean))"
+
+    type_check(generator.contents)
   end
 end
