@@ -32,14 +32,19 @@ module GraphQLClient
       @declared_queries ||= []
     end
 
+    sig {params(operation_name: String).returns(QueryDeclaration)}
+    def fetch_query(operation_name)
+      result = declared_queries.detect {|d| d.operations.include?(operation_name)}
+      T.must(result)
+    end
+
     sig do
       params(
-        constant_name: Symbol,
         query_text: String,
         schema: T.nilable(T.class_of(GraphQL::Schema))
       ).void
     end
-    def declare_query(constant_name, query_text, schema: nil)
+    def declare_query(query_text, schema: nil)
       schema ||= GraphQLClient.default_schema
       if schema.nil?
         Kernel.raise("You need to either provide a `schema:` to declare_query, or set GraphQLClient.default_schema")
@@ -50,6 +55,10 @@ module GraphQLClient
         # noop
       else
         Kernel.raise("You need to `extend GraphQLClient::QueryContainer`, you cannot use `include`.")
+      end
+
+      if container.name.nil?
+        Kernel.raise("Query containers must be classes or modules that are assigned to constants.")
       end
 
       validator = GraphQL::StaticValidation::Validator.new(schema: schema)
@@ -67,7 +76,7 @@ module GraphQLClient
 
       declared_queries << QueryDeclaration.new(
         container: container,
-        constant_name: constant_name,
+        operations: query.operations.keys.freeze,
         query_text: query_text,
         schema: schema,
       )

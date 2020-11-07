@@ -9,7 +9,7 @@ module GraphQLClient
     interface!
 
     sig {abstract.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
-    def __errors; end
+    def errors; end
 
     class OnlyErrors
       extend T::Sig
@@ -21,7 +21,7 @@ module GraphQLClient
       end
 
       sig {override.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
-      def __errors
+      def errors
         @errors
       end
     end

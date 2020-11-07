@@ -2,20 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe GraphQLClient::QueryContainer do
-  let(:fake_container) do
-    Module.new do
-      extend GraphQLClient::QueryContainer
-    end
-  end
-
-  before do
-    fake_schema = GraphQL::Schema.from_definition(schema)
-    stub_const("FakeSchema", fake_schema)
-    
-    GraphQLClient.default_schema = fake_schema
-    stub_const("FakeContainer", fake_container)
-  end
-
   it "can declare queries" do
     query_text = <<~'GRAPHQL'
       query Foobar {
@@ -26,7 +12,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       }
     GRAPHQL
     
-    FakeContainer.declare_query(:Viewer, query_text)
+    FakeContainer.declare_query(query_text)
 
     declaration = FakeContainer.declared_queries[0]
     expect(declaration).to_not be nil
@@ -44,7 +30,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       }
     GRAPHQL
     
-    expect {FakeContainer.declare_query(:Viewer, query_text)}
+    expect {FakeContainer.declare_query(query_text)}
       .to raise_error(GraphQLClient::ValidationError, /foobarFakeField/)
   end
 
@@ -57,7 +43,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       }
     GRAPHQL
     
-    expect {FakeContainer.declare_query(:Viewer, query_text)}
+    expect {FakeContainer.declare_query(query_text)}
       .to raise_error(GraphQLClient::ValidationError, /name for each of the operations/)
   end
 end

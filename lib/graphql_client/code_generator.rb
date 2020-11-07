@@ -4,18 +4,50 @@
 module GraphQLClient
   class CodeGenerator
     extend T::Sig
+    include Utils
 
-    RAW_TYPE = T.let("T.any(::String, T::Boolean, ::Numeric)", String)
+    PROTECTED_NAMES = T.let([
+      *Object.instance_methods,
+      *GraphQLClient::QueryResult.instance_methods,
+      *GraphQLClient::ErrorResult.instance_methods,
+    ].map(&:to_s).sort.uniq.freeze, T::Array[String])
 
-    sig {returns(T::Hash[String, String])}
+    sig {returns(T::Hash[String, DefinedClass])}
     attr_reader :classes
 
     sig {params(schema: GRAPHQL_SCHEMA).void}
     def initialize(schema)
       @schema = T.let(schema, GRAPHQL_SCHEMA)
       @enums = T.let({}, T::Hash[String, String])
-      @scalars = T.let({}, T::Hash[String, ScalarConverter])
-      @classes = T.let({}, T::Hash[String, String])
+      @scalars = T.let(GraphQLClient.scalar_converters(schema), T::Hash[String, ScalarConverter])
+      @classes = T.let({}, T::Hash[String, DefinedClass])
+    end
+
+    sig {returns(String)}
+    def contents
+      definitions = classes
+        .sort_by {|name, definition| name}
+        .map {|(name, definition)| definition.to_ruby}
+        .join("\n\n")
+
+      <<~STRING
+      # typed: strict
+      # frozen_string_literal: true
+
+      require 'pp'
+
+      #{definitions}
+      STRING
+    end
+
+    # Returns the contents
+    sig {returns(String)}
+    def formatted_contents
+      if defined?(CodeRay)
+        CodeRay.scan(contents, :ruby).term
+      else
+        contents
+      end
     end
 
     sig {params(declaration: QueryDeclaration).void}
@@ -35,22 +67,23 @@ module GraphQLClient
         end
 
         ensure_constant_name(name)
-        module_name = "#{schema.name}::#{name}"
+        module_name = "#{declaration.container.name}::#{name}"
         root_type = generate_result_class(
           module_name,
           owner_type,
           op_def.selections,
-          top_level: true
+          top_level: OperationDeclaration.new(
+            declaration: declaration,
+            operation_name: name,
+          )
         )
-
-        # TBD.
       end
     end
 
-    sig {params(class_name: String, definition: String).void}
-    def add_class(class_name, definition)
-      raise "Already have class" if @classes.key?(class_name)
-      @classes[class_name] = definition
+    sig {params(definition: DefinedClass).void}
+    def add_class(definition)
+      raise "Already have class" if @classes.key?(definition.name)
+      @classes[definition.name] = definition
     end
 
     sig {returns(GRAPHQL_SCHEMA)}
@@ -66,47 +99,13 @@ module GraphQLClient
 
     sig {params(enum_type: T.class_of(GraphQL::Schema::Enum)).returns(String)}
     def enum_for(enum_type)
-      sorbet_enum = @enums[enum_type.graphql_name]
-      return sorbet_enum if sorbet_enum
+      enum_class_name = @enums[enum_type.graphql_name]
+      return enum_class_name if enum_class_name
 
-      # Generate a new enum definition
       # TODO: sanitize the name
       klass_name = "#{schema.name}::#{enum_type.graphql_name}"
-
-      definitions = enum_type.values.map do |name|
-        # TODO: sanitize the name
-        "#{name} = new(#{name.inspect})"
-      end
-
-      add_class(klass_name, <<~STRING)
-        class #{klass_name} < T::Enum
-          enums do
-            #{indent(definitions.join("\n"), 2).strip}
-          end
-        end
-      STRING
-
+      add_class(EnumClass.new(name: klass_name, serialized_values: enum_type.values.keys))
       @enums[enum_type.graphql_name] = klass_name
-    end
-
-    sig {params(camel_cased_word: String).returns(String)}
-    def underscore(camel_cased_word)
-      return camel_cased_word unless /[A-Z-]|::/.match?(camel_cased_word)
-      word = camel_cased_word.to_s.gsub("::", "/")
-      word.gsub!(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2')
-      word.gsub!(/([a-z\d])([A-Z])/, '\1_\2')
-      word.tr!("-", "_")
-      word.downcase!
-      word
-    end
-
-    sig {params(term: String).returns(String)}
-    def camelize(term)
-      string = term.to_s
-      string = string.sub(/^[a-z\d]*/) { |match| match.capitalize }
-      string.gsub!(/(?:_|(\/))([a-z\d]*)/i) { "#{$1}#{$2.capitalize}" }
-      string.gsub!("/", "::")
-      string
     end
 
     sig do
@@ -114,12 +113,13 @@ module GraphQLClient
         module_name: String,
         owner_type: T.untyped,
         selections: T::Array[T.untyped],
-        top_level: T::Boolean
+        top_level: T.nilable(OperationDeclaration)
       )
-      .returns(SorbetType)
+      .returns(TypedExpression)
     end
-    private def generate_result_class(module_name, owner_type, selections, top_level: false)
-      methods = selections.map do |node|
+    private def generate_result_class(module_name, owner_type, selections, top_level: nil)
+      methods = T.let([], T::Array[DefinedMethod])
+      selections.each do |node|
         case node
         when GraphQL::Language::Nodes::Field
           # Get the result type for this particular selection
@@ -147,75 +147,35 @@ module GraphQLClient
             input_name
           )
           
-          method_name = underscore(input_name)
-
-          indent(<<~STRING, 1)
-            sig {returns(#{return_type.signature})}
-            def #{method_name}
-              #{indent(return_type.converter, 1).strip}
-            end
-          STRING
+          method_name = generate_method_name(underscore(input_name))
+          methods.push(DefinedMethod.new(
+            name: method_name, 
+            signature: return_type.signature,
+            body: return_type.converter,
+          ))
         end
       end
 
       if top_level
-        add_class(module_name, <<~STRING)
-          class #{module_name}
-            extend T::Sig
-            include GraphQLClient::QueryResult
-            include GraphQLClient::ErrorResult
-
-            sig {params(result: T::Hash[String, T.untyped]).returns(T.any(T.attached_class, GraphQLClient::ErrorResult))}
-            def self.from_result(result)
-              data = result['data']
-              if data
-                new(data, result['errors'])
-              else
-                GraphQLClient::ErrorResult::OnlyErrors.new(result['errors'])
-              end
-            end
-
-            sig {params(data: T::Hash[String, T.untyped], errors: T.nilable(T::Hash[String, T.untyped])).void}
-            def initialize(data, errors)
-              @result = T.let(data, T::Hash[String, T.untyped])
-              @errors = T.let(errors, T.nilable(T::Hash[String, T.untyped]))
-            end
-
-            sig {override.returns(T.nilable(T::Hash[String, T.untyped]))}
-            def __raw_result
-              @result
-            end
-
-            sig {override.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
-            def __errors
-              @errors
-            end
-
-            #{methods.join("\n\n").strip}
-          end
-        STRING
+        add_class(
+          RootClass.new(
+            name: module_name,
+            schema: schema,
+            operation_name: top_level.operation_name,
+            query_container: top_level.declaration.container,
+            defined_methods: methods
+          )
+        )
       else
-        add_class(module_name, <<~STRING)
-          class #{module_name}
-            extend T::Sig
-            include GraphQLClient::QueryResult
-
-            sig {params(result: T::Hash[String, T.untyped]).void}
-            def initialize(result)
-              @result = T.let(result, T::Hash[String, T.untyped])
-            end
-
-            sig {override.returns(T.nilable(T::Hash[String, T.untyped]))}
-            def __raw_result
-              @result
-            end
-
-            #{methods.join("\n\n").strip}
-          end
-        STRING
+        add_class(
+          LeafClass.new(
+            name: module_name,
+            defined_methods: methods
+          )
+        )
       end
 
-      SorbetType.new(
+      TypedExpression.new(
         signature: module_name,
         converter: <<~STRING
           #{module_name}.new(raw_value)
@@ -223,14 +183,9 @@ module GraphQLClient
       )
     end
 
-    sig {params(string: String, amount: Integer).returns(String)}
-    def indent(string, amount)
-      string.split("\n").map {|line| ('  ' * amount) + line}.join("\n")
-    end
-
     sig do
       params(
-        wrappers: T::Array[SorbetTypeWrapper],
+        wrappers: T::Array[TypeWrapper],
         variable_name: String,
         array_wrappers: Integer,
         level: Integer,
@@ -240,7 +195,7 @@ module GraphQLClient
     def build_expression(wrappers, variable_name, array_wrappers, level, core_expression)
       next_wrapper = wrappers.shift
       case next_wrapper
-      when SorbetTypeWrapper::ARRAY
+      when TypeWrapper::ARRAY
         array_wrappers -= 1
         next_variable_name = if array_wrappers == 0
           "raw_value"
@@ -253,7 +208,7 @@ module GraphQLClient
             #{build_expression(wrappers, next_variable_name, array_wrappers, level + 1, core_expression)}
           end
         STRING
-      when SorbetTypeWrapper::NILABLE
+      when TypeWrapper::NILABLE
         break_word = level == 0 ? 'return' : 'next'
         indent(<<~STRING, level)
           #{break_word} if #{variable_name}.nil?
@@ -261,10 +216,7 @@ module GraphQLClient
         STRING
       when nil
         if level == 0
-          indent(<<~STRING, level)
-            raw_value = #{variable_name}
-            #{core_expression}
-          STRING
+          indent(core_expression.gsub(/raw_value/, variable_name), level)
         else
           indent(core_expression, level)
         end
@@ -272,27 +224,20 @@ module GraphQLClient
         T.absurd(next_wrapper)
       end
     end
-
-    class SorbetTypeWrapper < T::Enum
-      enums do
-        NILABLE = new
-        ARRAY = new
-      end
-    end
   
-    # Returns the SorbetType object for this graphql type.
+    # Returns the TypedExpression object for this graphql type.
     sig do
       params(
         graphql_type: T.untyped,
         subselections: T::Array[T.untyped],
         next_module_name: String,
         input_name: String
-      ).returns(SorbetType)
+      ).returns(TypedExpression)
     end
     def sorbet_type(graphql_type, subselections, next_module_name, input_name)
       # Unwrap the graphql type, but keep track of the wrappers that it had
       # so that we can build the sorbet signature and return expression.
-      wrappers = T.let([], T::Array[SorbetTypeWrapper])
+      wrappers = T.let([], T::Array[TypeWrapper])
       fully_unwrapped_type = T.let(graphql_type, T.untyped)
   
       # Sorbet uses nullable wrappers, whereas GraphQL uses non-nullable wrappers.
@@ -307,11 +252,11 @@ module GraphQLClient
           next
         end
   
-        wrappers << SorbetTypeWrapper::NILABLE if !skip_nilable
+        wrappers << TypeWrapper::NILABLE if !skip_nilable
         skip_nilable = false
   
         if fully_unwrapped_type.list?
-          wrappers << SorbetTypeWrapper::ARRAY
+          wrappers << TypeWrapper::ARRAY
           array_wrappers += 1
           fully_unwrapped_type = T.unsafe(fully_unwrapped_type).of_type
           next
@@ -323,39 +268,29 @@ module GraphQLClient
       core_sorbet_type = unwrapped_graphql_type_to_sorbet_type(fully_unwrapped_type, subselections, next_module_name)
       
       signature = core_sorbet_type.signature
-      variable_name = "@result[#{input_name.inspect}]"
+      variable_name = "raw_result[#{input_name.inspect}]"
       method_body = build_expression(wrappers.dup, variable_name, array_wrappers, 0, core_sorbet_type.converter)
 
       wrappers.reverse_each do |wrapper|
         case wrapper
-        when SorbetTypeWrapper::ARRAY
+        when TypeWrapper::ARRAY
           signature = "T::Array[#{signature}]"
-        when SorbetTypeWrapper::NILABLE
+        when TypeWrapper::NILABLE
           signature = "T.nilable(#{signature})"
         else
           T.absurd(wrapper)
         end
       end
   
-      SorbetType.new(
+      TypedExpression.new(
         signature: signature,
         converter: method_body
       )
     end
 
-    class SorbetType < T::Struct
-      # The signature to put in the sorbet type
-      const :signature, String
-
-      # Converter function to use for the return result.
-      # This assumes that a local variable named `raw_value` has the
-      # value to be converted.
-      const :converter, String
-    end
-
-    sig {params(scalar_converter: ScalarConverter).returns(SorbetType)}
+    sig {params(scalar_converter: ScalarConverter).returns(TypedExpression)}
     def sorbet_type_from_scalar_converter(scalar_converter)
-      SorbetType.new(
+      TypedExpression.new(
         signature: scalar_converter.sorbet_type,
         converter: <<~STRING.strip
           scalar_converter = GraphQLClient.find_scalar_converter(
@@ -371,8 +306,8 @@ module GraphQLClient
     sig do
       params(
         type_name: String,
-        block: T.proc.returns(SorbetType)
-      ).returns(SorbetType)
+        block: T.proc.returns(TypedExpression)
+      ).returns(TypedExpression)
     end
     def converter_or_default(type_name, &block)
       converter = @scalars[type_name]
@@ -387,70 +322,70 @@ module GraphQLClient
         graphql_type: T.untyped,
         subselections: T::Array[T.untyped],
         next_module_name: String,
-      ).returns(SorbetType)
+      ).returns(TypedExpression)
     end
     def unwrapped_graphql_type_to_sorbet_type(graphql_type, subselections, next_module_name)
       if graphql_type == GraphQL::Types::Boolean
-        SorbetType.new(
+        TypedExpression.new(
           signature: "T::Boolean",
           converter: 'T.let(raw_value, T::Boolean)'
         )
       elsif graphql_type == GraphQL::Types::BigInt
         converter_or_default(T.unsafe(GraphQL::Types::BigInt).graphql_name) do
-          SorbetType.new(
-            signature: "::Integer",
-            converter: 'T.let(raw_value, T.any(::String, ::Integer)).to_i'
+          TypedExpression.new(
+            signature: "Integer",
+            converter: 'T.let(raw_value, T.any(String, Integer)).to_i'
           )
         end
       elsif graphql_type == GraphQL::Types::ID
         converter_or_default('ID') do
-          SorbetType.new(
-            signature: "::String",
-            converter: 'T.let(raw_value, ::String)'
+          TypedExpression.new(
+            signature: "String",
+            converter: 'T.let(raw_value, String)'
           )
         end
       elsif graphql_type == GraphQL::Types::ISO8601Date
         converter_or_default(T.unsafe(GraphQL::Types::ISO8601Date).graphql_name) do
-          SorbetType.new(
-            signature: "::Date",
-            converter: '::Date.iso8601(T.let(raw_value, ::String))'
+          TypedExpression.new(
+            signature: "Date",
+            converter: 'Date.iso8601(T.let(raw_value, String))'
           )
         end
       elsif graphql_type == GraphQL::Types::ISO8601DateTime
         converter_or_default(T.unsafe(GraphQL::Types::ISO8601DateTime).graphql_name) do
-          SorbetType.new(
-            signature: "::Time",
-            converter: '::Time.iso8601(T.let(raw_value, ::String))'
+          TypedExpression.new(
+            signature: "Time",
+            converter: 'Time.iso8601(T.let(raw_value, String))'
           )
         end
       elsif graphql_type == GraphQL::Types::Int
-        SorbetType.new(
-          signature: "::Integer",
-          converter: 'T.let(raw_value, ::Integer)'
+        TypedExpression.new(
+          signature: "Integer",
+          converter: 'T.let(raw_value, Integer)'
         )
       elsif graphql_type == GraphQL::Types::Float
-        SorbetType.new(
-          signature: "::Float",
-          converter: 'T.let(raw_value, ::Float)'
+        TypedExpression.new(
+          signature: "Float",
+          converter: 'T.let(raw_value, Float)'
         )
       elsif graphql_type == GraphQL::Types::String
-        SorbetType.new(
-          signature: "::String",
-          converter: 'T.let(raw_value, ::String)'
+        TypedExpression.new(
+          signature: "String",
+          converter: 'T.let(raw_value, String)'
         )
       elsif graphql_type.is_a?(Class)
         if graphql_type < GraphQL::Schema::Enum
           klass_name = enum_for(graphql_type)
   
-          SorbetType.new(
+          TypedExpression.new(
             signature: klass_name,
-            converter: "#{klass_name}.deserialize(T.let(raw_value, ::String))"
+            converter: "#{klass_name}.deserialize(T.let(raw_value, String))"
           )
         elsif graphql_type < GraphQL::Schema::Scalar
           converter_or_default(graphql_type.graphql_name) do
-            SorbetType.new(
-              signature: RAW_TYPE,
-              converter: "T.let(raw_value, #{RAW_TYPE})"
+            TypedExpression.new(
+              signature: T.unsafe(GraphQLClient::RAW_SCALAR_TYPE).name,
+              converter: "T.let(raw_value, #{T.unsafe(GraphQLClient::RAW_SCALAR_TYPE).name})"
             )
           end
         elsif graphql_type < GraphQL::Schema::Member
