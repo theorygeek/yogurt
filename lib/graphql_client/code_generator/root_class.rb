@@ -15,6 +15,7 @@ module GraphQLClient
       const :query_container, QueryContainer::CONTAINER
       const :defined_methods, T::Array[DefinedMethod]
       const :variables, T::Array[VariableDefinition]
+      const :dependencies, T::Array[String]
 
       sig {override.returns(String)}
       def to_ruby

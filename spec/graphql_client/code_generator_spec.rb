@@ -159,6 +159,8 @@ RSpec.describe GraphQLClient::CodeGenerator do
     STRING
 
     expect(action_argument.signature).to eq "T.nilable(T::Array[FakeSchema::CheckRunAction])"
+    puts(generator.formatted_contents)
+    
     type_check(generator.contents)
   end
 end

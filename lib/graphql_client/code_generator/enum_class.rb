@@ -10,9 +10,12 @@ module GraphQLClient
       include DefinedClass
 
       const :name, String
-
-      # These are the raw values that are returned from GraphQL
       const :serialized_values, T::Array[String]
+      
+      sig {override.returns(T::Array[String])}
+      def dependencies
+        []
+      end
 
       sig {override.returns(String)}
       def to_ruby

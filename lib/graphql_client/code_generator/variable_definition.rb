@@ -11,6 +11,7 @@ module GraphQLClient
       const :graphql_name, String
       const :signature, String
       const :serializer, String
+      const :dependency, T.nilable(String)
 
       sig {returns(T::Boolean)}
       def optional?

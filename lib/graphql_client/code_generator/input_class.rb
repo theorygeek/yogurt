@@ -12,6 +12,11 @@ module GraphQLClient
       const :name, String
       const :arguments, T::Array[VariableDefinition]
 
+      sig {override.returns(T::Array[String])}
+      def dependencies
+        arguments.map(&:dependency).compact
+      end
+
       sig {override.returns(String)}
       def to_ruby
         extract = []

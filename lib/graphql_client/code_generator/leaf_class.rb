@@ -11,6 +11,7 @@ module GraphQLClient
 
       const :name, String
       const :defined_methods, T::Array[DefinedMethod]
+      const :dependencies, T::Array[String]
 
       sig {override.returns(String)}
       def to_ruby

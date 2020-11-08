@@ -30,9 +30,9 @@ module GraphQLClient
 
     sig {returns(String)}
     def contents
-      definitions = classes
-        .sort_by {|name, definition| name}
-        .map {|(name, definition)| definition.to_ruby}
+      definitions = DefinedClassSorter.new(classes.values)
+        .sorted_classes
+        .map {|definition| definition.to_ruby}
         .join("\n\n")
 
       <<~STRING
@@ -135,12 +135,14 @@ module GraphQLClient
         module_name: String,
         owner_type: T.untyped,
         selections: T::Array[T.untyped],
-        operation_declaration: T.nilable(OperationDeclaration)
+        operation_declaration: T.nilable(OperationDeclaration),
+        dependencies: T::Array[String],
       )
       .returns(TypedOutput)
     end
-    private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil)
+    private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil, dependencies: [])
       methods = T.let([], T::Array[DefinedMethod])
+      next_dependencies = [module_name, *dependencies]
       selections.each do |node|
         case node
         when GraphQL::Language::Nodes::Field
@@ -166,7 +168,8 @@ module GraphQLClient
             field_definition.type,
             node.selections,
             next_name,
-            input_name
+            input_name,
+            next_dependencies
           )
           
           method_name = generate_method_name(underscore(input_name))
@@ -186,14 +189,16 @@ module GraphQLClient
             operation_name: operation_declaration.operation_name,
             query_container: operation_declaration.declaration.container,
             defined_methods: methods,
-            variables: operation_declaration.variables.map {|v| variable_definition(v)}
+            variables: operation_declaration.variables.map {|v| variable_definition(v)},
+            dependencies: dependencies,
           )
         )
       else
         add_class(
           LeafClass.new(
             name: module_name,
-            defined_methods: methods
+            defined_methods: methods,
+            dependencies: dependencies,
           )
         )
       end
@@ -254,10 +259,11 @@ module GraphQLClient
         graphql_type: T.untyped,
         subselections: T::Array[T.untyped],
         next_module_name: String,
-        input_name: String
+        input_name: String,
+        dependencies: T::Array[String]
       ).returns(TypedOutput)
     end
-    def generate_output_type(graphql_type, subselections, next_module_name, input_name)
+    def generate_output_type(graphql_type, subselections, next_module_name, input_name, dependencies)
       # Unwrap the graphql type, but keep track of the wrappers that it had
       # so that we can build the sorbet signature and return expression.
       wrappers = T.let([], T::Array[TypeWrapper])
@@ -288,7 +294,7 @@ module GraphQLClient
         break
       end
 
-      core_typed_expression = unwrapped_graphql_type_to_output_type(fully_unwrapped_type, subselections, next_module_name)
+      core_typed_expression = unwrapped_graphql_type_to_output_type(fully_unwrapped_type, subselections, next_module_name, dependencies)
       
       signature = core_typed_expression.signature
       variable_name = "raw_result[#{input_name.inspect}]"
@@ -343,9 +349,10 @@ module GraphQLClient
         graphql_type: T.untyped,
         subselections: T::Array[T.untyped],
         next_module_name: String,
+        dependencies: T::Array[String]
       ).returns(TypedOutput)
     end
-    def unwrapped_graphql_type_to_output_type(graphql_type, subselections, next_module_name)
+    def unwrapped_graphql_type_to_output_type(graphql_type, subselections, next_module_name, dependencies)
       if graphql_type == GraphQL::Types::Boolean
         TypedOutput.new(
           signature: "T::Boolean",
@@ -391,6 +398,7 @@ module GraphQLClient
       elsif graphql_type.is_a?(Class)
         if graphql_type < GraphQL::Schema::Enum
           klass_name = enum_class(graphql_type)
+          dependencies.push(klass_name)
   
           TypedOutput.new(
             signature: klass_name,
@@ -407,7 +415,8 @@ module GraphQLClient
           generate_result_class(
             next_module_name,
             graphql_type,
-            subselections
+            subselections,
+            dependencies: dependencies
           )
         else
           raise "Unknown GraphQL type: #{graphql_type.inspect}"
@@ -482,6 +491,7 @@ module GraphQLClient
         graphql_name: variable.name,
         signature: signature,
         serializer: serializer.strip,
+        dependency: core_input_type.dependency,
       )
     end
 
@@ -566,7 +576,8 @@ module GraphQLClient
   
           TypedInput.new(
             signature: klass_name,
-            serializer: "raw_value.serialize"
+            serializer: "raw_value.serialize",
+            dependency: klass_name,
           )
         elsif graphql_type < GraphQL::Schema::Scalar
           serializer_or_default(graphql_type.graphql_name) do
@@ -579,7 +590,8 @@ module GraphQLClient
           klass_name = input_class(T.unsafe(graphql_type).graphql_name)
           TypedInput.new(
             signature: klass_name,
-            serializer: "raw_value.serialize"
+            serializer: "raw_value.serialize",
+            dependency: klass_name,
           )
         else
           raise "Unknown GraphQL type: #{graphql_type.inspect}"
