@@ -7,6 +7,9 @@ module GraphQLClient
     extend T::Helpers
     interface!
 
+    sig {abstract.returns(T::Types::Base)}
+    def options_type_alias; end
+
     sig do
       abstract.params(
         query: String,

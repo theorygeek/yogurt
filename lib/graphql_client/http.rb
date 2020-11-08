@@ -31,6 +31,11 @@ module GraphQLClient
       @headers
     end
 
+    sig {override.returns(T::Types::Base)}
+    def options_type_alias
+      T.type_alias {T.nilable(OptionsType)}
+    end
+
     sig do
       override.params(
         query: String,

@@ -11,6 +11,25 @@ module GraphQLClient
   GRAPHQL_SCHEMA = T.type_alias {T.class_of(GraphQL::Schema)}
   SCALAR_TYPE = T.type_alias {T.any(::String, T::Boolean, Numeric)}
 
+  sig do
+    params(
+      schema: GRAPHQL_SCHEMA,
+      query: String,
+      operation_name: String,
+      variables: T.nilable(T::Hash[String, T.untyped]),
+      options: T.untyped
+    ).returns(T::Hash[String, T.untyped])
+  end
+  def self.execute(schema:, query:, operation_name:, variables:, options:)
+    execute = GraphQLClient.registered_schemas.fetch(schema)
+    execute.execute(
+      query,
+      operation_name: operation_name,
+      variables: variables,
+      options: options
+    )
+  end
+
   sig {returns(T.nilable(T.class_of(GraphQL::Schema)))}
   def self.default_schema
     @default_schema
@@ -60,19 +79,19 @@ module GraphQLClient
     params(
       schema: GRAPHQL_SCHEMA,
       graphql_type_name: String,
-      converter: SCALAR_CONVERTER,
+      deserializer: SCALAR_CONVERTER,
     ).void
   end
-  def self.register_scalar(schema, graphql_type_name, converter)
+  def self.register_scalar(schema, graphql_type_name, deserializer)
     if !schema.types.key?(graphql_type_name)
       raise ArgumentError, "Schema does not contain the type #{graphql_type_name}"
     end
 
-    if converter.name.nil?
+    if deserializer.name.nil?
       raise ArgumentError, "ScalarConverters must be assigned to constants"
     end
     
-    scalar_converters(schema)[graphql_type_name] = converter
+    scalar_converters(schema)[graphql_type_name] = deserializer
   end
 end
 

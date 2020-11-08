@@ -11,6 +11,6 @@ module GraphQLClient
     def type_alias; end
 
     sig {abstract.params(raw_value: GraphQLClient::SCALAR_TYPE).returns(T.untyped)}
-    def convert(raw_value); end
+    def deserialize(raw_value); end
   end
 end

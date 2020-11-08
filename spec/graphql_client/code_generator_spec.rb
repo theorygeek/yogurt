@@ -62,7 +62,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
     
     expect(created_at_method.signature).to eq "Time"
-    expect(created_at_method.body).to eq 'GraphQLClient::Converters::Time.convert(raw_result["createdAt"])'
+    expect(created_at_method.body).to eq 'GraphQLClient::Converters::Time.deserialize(raw_result["createdAt"])'
     type_check(generator.contents)
   end
 
@@ -94,6 +94,71 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(url_method).to_not be_nil
     expect(url_method.signature).to eq "T.nilable(T.any(Numeric, String, T::Boolean))"
 
+    type_check(generator.contents)
+  end
+
+  it "handles variables" do
+    query_text = <<~'GRAPHQL'
+      mutation SampleMutation($checkRun: CreateCheckRunInput!, $issueId: ID!, $clientMutationId: String) {
+        createCheckRun(input: $checkRun) {
+          checkRun {
+            completedAt
+          }
+        }
+
+        pinIssue(input: {clientMutationId: $clientMutationId, issueId: $issueId}) {
+          clientMutationId
+        }
+      }
+    GRAPHQL
+
+    FakeContainer.declare_query(query_text)
+    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator.generate(FakeContainer.declared_queries[0])
+
+    check_run_input = generator.classes['FakeSchema::CreateCheckRunInput']
+    expect(check_run_input).to_not be_nil
+    expect(check_run_input).to be_a GraphQLClient::CodeGenerator::InputClass
+    expect(check_run_input.arguments.map(&:name)).to match_array(%i[
+      actions
+      client_mutation_id
+      completed_at
+      conclusion
+      details_url
+      external_id
+      head_sha
+      name
+      output
+      repository_id
+      started_at
+      status
+    ])
+
+    expect(check_run_input.arguments.map(&:graphql_name)).to match_array(%w[
+      actions
+      clientMutationId
+      completedAt
+      conclusion
+      detailsUrl
+      externalId
+      headSha
+      name
+      output
+      repositoryId
+      startedAt
+      status
+    ])
+    
+    action_argument = check_run_input.arguments.detect {|dm| dm.name == :actions}
+    expect(action_argument.serializer).to eq <<~STRING.strip
+      if actions
+        actions.map do |actions1|
+          actions1.serialize
+        end
+      end
+    STRING
+
+    expect(action_argument.signature).to eq "T.nilable(T::Array[FakeSchema::CheckRunAction])"
     type_check(generator.contents)
   end
 end

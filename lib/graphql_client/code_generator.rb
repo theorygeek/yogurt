@@ -18,7 +18,12 @@ module GraphQLClient
     sig {params(schema: GRAPHQL_SCHEMA).void}
     def initialize(schema)
       @schema = T.let(schema, GRAPHQL_SCHEMA)
+
+      # Maps GraphQL enum name to class name
       @enums = T.let({}, T::Hash[String, String])
+
+      # Maps GraphQL input type name to class name
+      @input_types = T.let({}, T::Hash[String, String])
       @scalars = T.let(GraphQLClient.scalar_converters(schema), T::Hash[String, SCALAR_CONVERTER])
       @classes = T.let({}, T::Hash[String, DefinedClass])
     end
@@ -72,9 +77,10 @@ module GraphQLClient
           module_name,
           owner_type,
           op_def.selections,
-          top_level: OperationDeclaration.new(
+          operation_declaration: OperationDeclaration.new(
             declaration: declaration,
             operation_name: name,
+            variables: op_def.variables
           )
         )
       end
@@ -98,7 +104,7 @@ module GraphQLClient
     end
 
     sig {params(enum_type: T.class_of(GraphQL::Schema::Enum)).returns(String)}
-    def enum_for(enum_type)
+    def enum_class(enum_type)
       enum_class_name = @enums[enum_type.graphql_name]
       return enum_class_name if enum_class_name
 
@@ -108,16 +114,32 @@ module GraphQLClient
       @enums[enum_type.graphql_name] = klass_name
     end
 
+    sig {params(graphql_name: String).returns(String)}
+    def input_class(graphql_name)
+      input_class_name = @input_types[graphql_name]
+      return input_class_name if input_class_name
+
+      klass_name = "#{schema.name}::#{graphql_name}"
+      graphql_type = schema.types[graphql_name]
+
+      arguments = graphql_type.arguments.each_value.map do |argument|
+        variable_definition(argument)
+      end
+
+      add_class(InputClass.new(name: klass_name, arguments: arguments))
+      @input_types[graphql_name] = klass_name
+    end
+
     sig do
       params(
         module_name: String,
         owner_type: T.untyped,
         selections: T::Array[T.untyped],
-        top_level: T.nilable(OperationDeclaration)
+        operation_declaration: T.nilable(OperationDeclaration)
       )
-      .returns(TypedExpression)
+      .returns(TypedOutput)
     end
-    private def generate_result_class(module_name, owner_type, selections, top_level: nil)
+    private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil)
       methods = T.let([], T::Array[DefinedMethod])
       selections.each do |node|
         case node
@@ -140,7 +162,7 @@ module GraphQLClient
 
           input_name = node.alias || node.name
           next_name = "#{module_name}::#{camelize(input_name)}"
-          return_type = sorbet_type(
+          return_type = generate_output_type(
             field_definition.type,
             node.selections,
             next_name,
@@ -151,19 +173,20 @@ module GraphQLClient
           methods.push(DefinedMethod.new(
             name: method_name, 
             signature: return_type.signature,
-            body: return_type.converter,
+            body: return_type.deserializer,
           ))
         end
       end
 
-      if top_level
+      if operation_declaration
         add_class(
           RootClass.new(
             name: module_name,
             schema: schema,
-            operation_name: top_level.operation_name,
-            query_container: top_level.declaration.container,
-            defined_methods: methods
+            operation_name: operation_declaration.operation_name,
+            query_container: operation_declaration.declaration.container,
+            defined_methods: methods,
+            variables: operation_declaration.variables.map {|v| variable_definition(v)}
           )
         )
       else
@@ -175,9 +198,9 @@ module GraphQLClient
         )
       end
 
-      TypedExpression.new(
+      TypedOutput.new(
         signature: module_name,
-        converter: <<~STRING
+        deserializer: <<~STRING
           #{module_name}.new(raw_value)
         STRING
       )
@@ -225,16 +248,16 @@ module GraphQLClient
       end
     end
   
-    # Returns the TypedExpression object for this graphql type.
+    # Returns the TypedOutput object for this graphql type.
     sig do
       params(
         graphql_type: T.untyped,
         subselections: T::Array[T.untyped],
         next_module_name: String,
         input_name: String
-      ).returns(TypedExpression)
+      ).returns(TypedOutput)
     end
-    def sorbet_type(graphql_type, subselections, next_module_name, input_name)
+    def generate_output_type(graphql_type, subselections, next_module_name, input_name)
       # Unwrap the graphql type, but keep track of the wrappers that it had
       # so that we can build the sorbet signature and return expression.
       wrappers = T.let([], T::Array[TypeWrapper])
@@ -265,11 +288,11 @@ module GraphQLClient
         break
       end
 
-      core_sorbet_type = unwrapped_graphql_type_to_sorbet_type(fully_unwrapped_type, subselections, next_module_name)
+      core_typed_expression = unwrapped_graphql_type_to_output_type(fully_unwrapped_type, subselections, next_module_name)
       
-      signature = core_sorbet_type.signature
+      signature = core_typed_expression.signature
       variable_name = "raw_result[#{input_name.inspect}]"
-      method_body = build_expression(wrappers.dup, variable_name, array_wrappers, 0, core_sorbet_type.converter)
+      method_body = build_expression(wrappers.dup, variable_name, array_wrappers, 0, core_typed_expression.deserializer)
 
       wrappers.reverse_each do |wrapper|
         case wrapper
@@ -282,34 +305,34 @@ module GraphQLClient
         end
       end
   
-      TypedExpression.new(
+      TypedOutput.new(
         signature: signature,
-        converter: method_body
+        deserializer: method_body
       )
     end
 
-    sig {params(scalar_converter: SCALAR_CONVERTER).returns(TypedExpression)}
-    def sorbet_type_from_scalar_converter(scalar_converter)
+    sig {params(scalar_converter: SCALAR_CONVERTER).returns(TypedOutput)}
+    def output_type_from_scalar_converter(scalar_converter)
       name = scalar_converter.name
       if name.nil?
-        raise "Expected scalar converter to be assigned to a constant"
+        raise "Expected scalar deserializer to be assigned to a constant"
       end
 
-      TypedExpression.new(
+      TypedOutput.new(
         signature: scalar_converter.type_alias.name,
-        converter: "#{name}.convert(raw_value)"
+        deserializer: "#{name}.deserialize(raw_value)"
       )
     end
 
     sig do
       params(
         type_name: String,
-        block: T.proc.returns(TypedExpression)
-      ).returns(TypedExpression)
+        block: T.proc.returns(TypedOutput)
+      ).returns(TypedOutput)
     end
-    def converter_or_default(type_name, &block)
-      converter = @scalars[type_name]
-      return sorbet_type_from_scalar_converter(converter) if converter
+    def deserializer_or_default(type_name, &block)
+      deserializer = @scalars[type_name]
+      return output_type_from_scalar_converter(deserializer) if deserializer
       yield
     end
   
@@ -320,64 +343,64 @@ module GraphQLClient
         graphql_type: T.untyped,
         subselections: T::Array[T.untyped],
         next_module_name: String,
-      ).returns(TypedExpression)
+      ).returns(TypedOutput)
     end
-    def unwrapped_graphql_type_to_sorbet_type(graphql_type, subselections, next_module_name)
+    def unwrapped_graphql_type_to_output_type(graphql_type, subselections, next_module_name)
       if graphql_type == GraphQL::Types::Boolean
-        TypedExpression.new(
+        TypedOutput.new(
           signature: "T::Boolean",
-          converter: 'T.let(raw_value, T::Boolean)'
+          deserializer: 'T.let(raw_value, T::Boolean)'
         )
       elsif graphql_type == GraphQL::Types::BigInt
-        converter_or_default(T.unsafe(GraphQL::Types::BigInt).graphql_name) do
-          TypedExpression.new(
+        deserializer_or_default(T.unsafe(GraphQL::Types::BigInt).graphql_name) do
+          TypedOutput.new(
             signature: "Integer",
-            converter: 'T.let(raw_value, T.any(String, Integer)).to_i'
+            deserializer: 'T.let(raw_value, T.any(String, Integer)).to_i'
           )
         end
       elsif graphql_type == GraphQL::Types::ID
-        converter_or_default('ID') do
-          TypedExpression.new(
+        deserializer_or_default('ID') do
+          TypedOutput.new(
             signature: "String",
-            converter: 'T.let(raw_value, String)'
+            deserializer: 'T.let(raw_value, String)'
           )
         end
       elsif graphql_type == GraphQL::Types::ISO8601Date
-        converter_or_default(T.unsafe(GraphQL::Types::ISO8601Date).graphql_name) do
-          sorbet_type_from_scalar_converter(Converters::Date)
+        deserializer_or_default(T.unsafe(GraphQL::Types::ISO8601Date).graphql_name) do
+          output_type_from_scalar_converter(Converters::Date)
         end
       elsif graphql_type == GraphQL::Types::ISO8601DateTime
-        converter_or_default(T.unsafe(GraphQL::Types::ISO8601DateTime).graphql_name) do
-          sorbet_type_from_scalar_converter(Converters::Time)
+        deserializer_or_default(T.unsafe(GraphQL::Types::ISO8601DateTime).graphql_name) do
+          output_type_from_scalar_converter(Converters::Time)
         end
       elsif graphql_type == GraphQL::Types::Int
-        TypedExpression.new(
+        TypedOutput.new(
           signature: "Integer",
-          converter: 'T.let(raw_value, Integer)'
+          deserializer: 'T.let(raw_value, Integer)'
         )
       elsif graphql_type == GraphQL::Types::Float
-        TypedExpression.new(
+        TypedOutput.new(
           signature: "Float",
-          converter: 'T.let(raw_value, Float)'
+          deserializer: 'T.let(raw_value, Float)'
         )
       elsif graphql_type == GraphQL::Types::String
-        TypedExpression.new(
+        TypedOutput.new(
           signature: "String",
-          converter: 'T.let(raw_value, String)'
+          deserializer: 'T.let(raw_value, String)'
         )
       elsif graphql_type.is_a?(Class)
         if graphql_type < GraphQL::Schema::Enum
-          klass_name = enum_for(graphql_type)
+          klass_name = enum_class(graphql_type)
   
-          TypedExpression.new(
+          TypedOutput.new(
             signature: klass_name,
-            converter: "#{klass_name}.deserialize(T.let(raw_value, String))"
+            deserializer: "#{klass_name}.deserialize(T.let(raw_value, String))"
           )
         elsif graphql_type < GraphQL::Schema::Scalar
-          converter_or_default(graphql_type.graphql_name) do
-            TypedExpression.new(
+          deserializer_or_default(graphql_type.graphql_name) do
+            TypedOutput.new(
               signature: T.unsafe(GraphQLClient::SCALAR_TYPE).name,
-              converter: "T.let(raw_value, #{T.unsafe(GraphQLClient::SCALAR_TYPE).name})"
+              deserializer: "T.let(raw_value, #{T.unsafe(GraphQLClient::SCALAR_TYPE).name})"
             )
           end
         elsif graphql_type < GraphQL::Schema::Member
@@ -385,6 +408,178 @@ module GraphQLClient
             next_module_name,
             graphql_type,
             subselections
+          )
+        else
+          raise "Unknown GraphQL type: #{graphql_type.inspect}"
+        end
+      else
+        raise "Unknown GraphQL type: #{graphql_type.inspect}"
+      end
+    end
+
+    sig {params(variable: T.any(GraphQL::Language::Nodes::VariableDefinition, GraphQL::Schema::Argument)).returns(VariableDefinition)}
+    def variable_definition(variable)
+      wrappers = T.let([], T::Array[TypeWrapper])
+      fully_unwrapped_type = T.let(variable.type, T.untyped)
+
+      skip_nilable = T.let(false, T::Boolean)
+      array_wrappers = 0
+  
+      loop do
+        non_null = fully_unwrapped_type.is_a?(GraphQL::Schema::NonNull) || fully_unwrapped_type.is_a?(GraphQL::Language::Nodes::NonNullType)
+        if non_null
+          fully_unwrapped_type = T.unsafe(fully_unwrapped_type).of_type
+          skip_nilable = true
+          next
+        end
+  
+        wrappers << TypeWrapper::NILABLE if !skip_nilable
+        skip_nilable = false
+  
+        list = fully_unwrapped_type.is_a?(GraphQL::Schema::List) || fully_unwrapped_type.is_a?(GraphQL::Language::Nodes::ListType)
+        if list
+          wrappers << TypeWrapper::ARRAY
+          array_wrappers += 1
+          fully_unwrapped_type = T.unsafe(fully_unwrapped_type).of_type
+          next
+        end
+  
+        break
+      end
+
+      core_input_type = unwrapped_graphql_type_to_input_type(fully_unwrapped_type)
+      variable_name = underscore(variable.name).to_sym
+      signature = core_input_type.signature
+      serializer = core_input_type.serializer
+      
+      wrappers.reverse_each do |wrapper|
+        case wrapper
+        when TypeWrapper::NILABLE
+          signature = "T.nilable(#{signature})"
+          serializer = <<~STRING
+            if raw_value
+              #{indent(serializer, 1).strip}
+            end
+          STRING
+        when TypeWrapper::ARRAY
+          signature = "T::Array[#{signature}]"
+          intermediate_name = "#{variable_name}#{array_wrappers}"
+          serializer = serializer.gsub(/\braw_value\b/, intermediate_name)
+          serializer = <<~STRING
+            raw_value.map do |#{intermediate_name}|
+              #{indent(serializer, 1).strip}
+            end
+          STRING
+        else
+          T.absurd(wrapper)
+        end
+      end
+
+      serializer = serializer.gsub(/\braw_value\b/, variable_name.to_s)
+
+      VariableDefinition.new(
+        name: variable_name,
+        graphql_name: variable.name,
+        signature: signature,
+        serializer: serializer.strip,
+      )
+    end
+
+    sig {params(scalar_converter: SCALAR_CONVERTER).returns(TypedInput)}
+    def input_type_from_scalar_converter(scalar_converter)
+      name = scalar_converter.name
+      if name.nil?
+        raise "Expected scalar deserializer to be assigned to a constant"
+      end
+
+      TypedInput.new(
+        signature: scalar_converter.type_alias.name,
+        serializer: "#{name}.serialize(raw_value)",
+      )
+    end
+
+    sig do
+      params(
+        type_name: String,
+        block: T.proc.returns(TypedInput)
+      ).returns(TypedInput)
+    end
+    def serializer_or_default(type_name, &block)
+      deserializer = @scalars[type_name]
+      return input_type_from_scalar_converter(deserializer) if deserializer
+      yield
+    end
+
+    sig do
+      params(graphql_type: T.untyped).returns(TypedInput)
+    end
+    def unwrapped_graphql_type_to_input_type(graphql_type)
+      if graphql_type.is_a?(GraphQL::Language::Nodes::TypeName)
+        graphql_type = schema.types[T.unsafe(graphql_type).name]
+      end
+
+      if graphql_type == GraphQL::Types::Boolean
+        TypedInput.new(
+          signature: "T::Boolean",
+          serializer: "raw_value"
+        )
+      elsif graphql_type == GraphQL::Types::BigInt
+        serializer_or_default(T.unsafe(GraphQL::Types::BigInt).graphql_name) do
+          TypedInput.new(
+            signature: "Integer",
+            serializer: "raw_value"
+          )
+        end
+      elsif graphql_type == GraphQL::Types::ID
+        serializer_or_default('ID') do
+          TypedInput.new(
+            signature: "String",
+            serializer: "raw_value"
+          )
+        end
+      elsif graphql_type == GraphQL::Types::ISO8601Date
+        serializer_or_default(T.unsafe(GraphQL::Types::ISO8601Date).graphql_name) do
+          input_type_from_scalar_converter(Converters::Date)
+        end
+      elsif graphql_type == GraphQL::Types::ISO8601DateTime
+        serializer_or_default(T.unsafe(GraphQL::Types::ISO8601DateTime).graphql_name) do
+          input_type_from_scalar_converter(Converters::Time)
+        end
+      elsif graphql_type == GraphQL::Types::Int
+        TypedInput.new(
+          signature: "Integer",
+          serializer: "raw_value"
+        )
+      elsif graphql_type == GraphQL::Types::Float
+        TypedInput.new(
+          signature: "Float",
+          serializer: "raw_value"
+        )
+      elsif graphql_type == GraphQL::Types::String
+        TypedInput.new(
+          signature: "String",
+          serializer: "raw_value"
+        )
+      elsif graphql_type.is_a?(Class)
+        if graphql_type < GraphQL::Schema::Enum
+          klass_name = enum_class(graphql_type)
+  
+          TypedInput.new(
+            signature: klass_name,
+            serializer: "raw_value.serialize"
+          )
+        elsif graphql_type < GraphQL::Schema::Scalar
+          serializer_or_default(graphql_type.graphql_name) do
+            TypedInput.new(
+              signature: T.unsafe(GraphQLClient::SCALAR_TYPE).name,
+              serializer: "raw_value"
+            )
+          end
+        elsif graphql_type < GraphQL::Schema::InputObject
+          klass_name = input_class(T.unsafe(graphql_type).graphql_name)
+          TypedInput.new(
+            signature: klass_name,
+            serializer: "raw_value.serialize"
           )
         else
           raise "Unknown GraphQL type: #{graphql_type.inspect}"
