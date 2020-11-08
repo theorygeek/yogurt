@@ -161,4 +161,28 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(action_argument.signature).to eq "T.nilable(T::Array[FakeSchema::CheckRunAction])"
     type_check(generator.contents)
   end
+
+  it "handles aliases" do
+    query_text = <<~'GRAPHQL'
+      query AliasedQuery {
+        me: viewer {
+          type: __typename
+        }
+      }
+    GRAPHQL
+
+    FakeContainer.declare_query(query_text)
+    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator.generate(FakeContainer.declared_queries[0])
+
+    query = generator.classes["FakeContainer::AliasedQuery"]
+    me_method = query.defined_methods.detect {|dm| dm.name == :me}
+    expect(me_method).to_not be_nil
+    expect(me_method.signature).to eq "FakeContainer::AliasedQuery::Me"
+
+    me_class = generator.classes["FakeContainer::AliasedQuery::Me"]
+    expect(me_class.defined_methods.map(&:name)).to eq [:type]
+
+    type_check(generator.contents)
+  end
 end
