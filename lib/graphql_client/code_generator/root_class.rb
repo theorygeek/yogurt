@@ -102,7 +102,7 @@ module GraphQLClient
         <<~STRING
           sig do
             params(
-              #{indent(signature_params.join(",\n"), 3).strip}
+              #{indent(signature_params.join(",\n"), 2).strip}
             ).returns(T.any(T.attached_class, GraphQLClient::ErrorResult))
           end
           def self.execute(#{params.join(", ")})
@@ -111,7 +111,7 @@ module GraphQLClient
               schema: SCHEMA,
               operation_name: OPERATION_NAME,
               options: options,
-              variables: #{indent(variable_extraction, 3).strip}
+              variables: #{indent(variable_extraction, 2).strip}
             )
 
             from_result(raw_result)

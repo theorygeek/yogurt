@@ -8,6 +8,7 @@ RSpec.describe "QueryResult.execute" do
     FakeContainer.declare_query(query_text)
     generator = GraphQLClient::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
+    type_check(generator.contents)
     puts(generator.formatted_contents)
     eval(generator.contents)
   end
@@ -134,5 +135,52 @@ RSpec.describe "QueryResult.execute" do
 
     expect(result.create_check_run.check_run.completed_at).to eq(completed_at)
     expect(result.pin_issue.client_mutation_id).to eq 'some_client_mutation_id'
+  end
+
+  it "can execute queries using scalar converters" do
+    GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+    query_text = <<~'GRAPHQL'
+      mutation UserStatusMutation($input: ChangeUserStatusInput!) {
+        changeUserStatus(input: $input) {
+          clientMutationId
+        }
+      }
+    GRAPHQL
+    
+    input_time = Time.new(2020, 11, 30, 12, 0, 0).utc
+    expect(FakeExecutor::Instance)
+      .to receive(:execute)
+      .with(
+        query_text,
+        operation_name: 'UserStatusMutation',
+        options: nil,
+        variables: {
+          'input' => {
+            'clientMutationId' => 'some_client_mutation_id',
+            'expiresAt' => input_time.iso8601,
+            'emoji' => nil,
+            'limitedAvailability' => nil,
+            'message' => nil,
+            'organizationId' => nil,
+          },
+        }
+      )
+      .and_return({
+        'data' => {
+          'changeUserStatus' => {
+            'clientMutationId' => 'some_client_mutation_id',
+          },
+        }
+      })
+    
+    declare_query(query_text)
+    result = FakeContainer::UserStatusMutation.execute(
+      input: FakeSchema::ChangeUserStatusInput.new(
+        client_mutation_id: 'some_client_mutation_id',
+        expires_at: input_time,
+      )
+    )
+
+    expect(result.change_user_status.client_mutation_id).to eq 'some_client_mutation_id'
   end
 end

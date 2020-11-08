@@ -12,6 +12,11 @@ module GraphQLClient
         T.type_alias {::Date}
       end
 
+      sig {override.params(value: ::Date).returns(String)}
+      def self.serialize(value)
+        value.iso8601
+      end
+
       sig {override.params(raw_value: SCALAR_TYPE).returns(::Date)}
       def self.deserialize(raw_value)
         if !raw_value.is_a?(String)
@@ -29,6 +34,11 @@ module GraphQLClient
       sig {override.returns(T::Types::Base)}
       def self.type_alias
         T.type_alias {::Time}
+      end
+
+      sig {override.params(value: ::Time).returns(String)}
+      def self.serialize(value)
+        value.iso8601
       end
 
       sig {override.params(raw_value: SCALAR_TYPE).returns(::Time)}
