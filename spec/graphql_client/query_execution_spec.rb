@@ -9,6 +9,7 @@ RSpec.describe "QueryResult.execute" do
     generator = GraphQLClient::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
     type_check(generator.contents)
+    puts(generator.formatted_contents)
     eval(generator.contents)
   end
 

@@ -5,6 +5,7 @@ module GraphQLClient
   class CodeGenerator
     module Utils
       extend T::Sig
+      extend self
 
       sig {params(camel_cased_word: String).returns(String)}
       def underscore(camel_cased_word)
@@ -28,7 +29,19 @@ module GraphQLClient
 
       sig {params(string: String, amount: Integer).returns(String)}
       def indent(string, amount)
-        string.split("\n").map {|line| ('  ' * amount) + line}.join("\n")
+        return string if amount == 0
+
+        padding = '  ' * amount
+  
+        buffer = T.unsafe(String).new("", capacity: string.size)
+        string.each_line do |line|
+          if line.size > 1 || line != "\n"
+            buffer << padding
+          end
+          buffer << line
+        end
+
+        buffer
       end
 
       sig {params(desired_name: String).returns(Symbol)}

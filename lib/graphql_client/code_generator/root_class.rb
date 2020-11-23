@@ -55,7 +55,7 @@ module GraphQLClient
               @errors
             end
 
-            #{indent(defined_methods.map(&:to_ruby).join("\n\n"), 1).strip}
+            #{indent(defined_methods.map(&:to_ruby).join("\n"), 1).strip}
 
             #{indent(pretty_print, 1).strip}
           end

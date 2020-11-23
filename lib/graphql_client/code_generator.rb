@@ -33,7 +33,7 @@ module GraphQLClient
       definitions = DefinedClassSorter.new(classes.values)
         .sorted_classes
         .map {|definition| definition.to_ruby}
-        .join("\n\n")
+        .join("\n")
 
       <<~STRING
       # typed: strict
@@ -231,22 +231,22 @@ module GraphQLClient
           "inner_value#{array_wrappers}"
         end
 
-        indent(<<~STRING, level)
+        indent(<<~STRING.rstrip, level > 0 ? 1 : 0)
           #{variable_name}.map do |#{next_variable_name}|
-            #{build_expression(wrappers, next_variable_name, array_wrappers, level + 1, core_expression)}
+          #{indent(build_expression(wrappers, next_variable_name, array_wrappers, level + 1, core_expression), 1)}
           end
         STRING
       when TypeWrapper::NILABLE
         break_word = level == 0 ? 'return' : 'next'
-        indent(<<~STRING, level)
+        <<~STRING.rstrip
           #{break_word} if #{variable_name}.nil?
           #{build_expression(wrappers, variable_name, array_wrappers, level, core_expression)}
         STRING
       when nil
         if level == 0
-          indent(core_expression.gsub(/raw_value/, variable_name), level)
+          core_expression.gsub(/raw_value/, variable_name)
         else
-          indent(core_expression, level)
+          core_expression
         end
       else
         T.absurd(next_wrapper)
