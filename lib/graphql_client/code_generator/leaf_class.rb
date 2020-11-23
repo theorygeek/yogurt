@@ -12,10 +12,23 @@ module GraphQLClient
       const :name, String
       const :defined_methods, T::Array[DefinedMethod]
       const :dependencies, T::Array[String]
+      const :typename, T.nilable(String)
 
       sig {override.returns(String)}
       def to_ruby
         pretty_print = generate_pretty_print(defined_methods)
+
+        typename_impl = if typename
+          typename.inspect
+        else
+          "raw_result['__typename']"
+        end
+
+        dynamic_methods = <<~STRING.strip
+          #{defined_methods.map(&:to_ruby).join("\n")}
+
+          #{pretty_print}
+        STRING
 
         <<~STRING
           class #{name}
@@ -32,9 +45,12 @@ module GraphQLClient
               @result
             end
 
-            #{indent(defined_methods.map(&:to_ruby).join("\n"), 1).strip}
+            sig {override.returns(String)}
+            def __typename
+              #{typename_impl}
+            end
 
-            #{indent(pretty_print, 1).strip}
+            #{indent(dynamic_methods, 1).strip}
           end
         STRING
       end

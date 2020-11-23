@@ -141,6 +141,7 @@ module GraphQLClient
       .returns(TypedOutput)
     end
     private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil, dependencies: [])
+      type_kind = owner_type.kind
       methods = T.let([], T::Array[DefinedMethod])
       next_dependencies = [module_name, *dependencies]
       selections.each do |node|
@@ -148,6 +149,11 @@ module GraphQLClient
         when GraphQL::Language::Nodes::Field
           # Get the result type for this particular selection
           field_name = node.name
+
+          # We always include a `__typename` method on query result objects,
+          # so it's redundant here.
+          next if field_name == '__typename' && node.alias.nil?
+
           field_definition = owner_type.get_field(field_name)
           
           if field_definition.nil?
@@ -187,6 +193,7 @@ module GraphQLClient
             name: module_name,
             schema: schema,
             operation_name: operation_declaration.operation_name,
+            typename: owner_type.graphql_name,
             query_container: operation_declaration.declaration.container,
             defined_methods: methods,
             variables: operation_declaration.variables.map {|v| variable_definition(v)},
@@ -199,6 +206,11 @@ module GraphQLClient
             name: module_name,
             defined_methods: methods,
             dependencies: dependencies,
+            typename: if type_kind.abstract?
+              nil
+            else
+              owner_type.graphql_name
+            end
           )
         )
       end
@@ -395,8 +407,9 @@ module GraphQLClient
           signature: "String",
           deserializer: 'T.let(raw_value, String)'
         )
-      elsif graphql_type.is_a?(Class)
-        if graphql_type < GraphQL::Schema::Enum
+      else
+        type_kind = graphql_type.kind
+        if type_kind.enum?
           klass_name = enum_class(graphql_type)
           dependencies.push(klass_name)
   
@@ -404,14 +417,14 @@ module GraphQLClient
             signature: klass_name,
             deserializer: "#{klass_name}.deserialize(T.let(raw_value, String))"
           )
-        elsif graphql_type < GraphQL::Schema::Scalar
+        elsif type_kind.scalar?
           deserializer_or_default(graphql_type.graphql_name) do
             TypedOutput.new(
               signature: T.unsafe(GraphQLClient::SCALAR_TYPE).name,
               deserializer: "T.let(raw_value, #{T.unsafe(GraphQLClient::SCALAR_TYPE).name})"
             )
           end
-        elsif graphql_type < GraphQL::Schema::Member
+        elsif type_kind.composite?
           generate_result_class(
             next_module_name,
             graphql_type,
@@ -419,10 +432,8 @@ module GraphQLClient
             dependencies: dependencies
           )
         else
-          raise "Unknown GraphQL type: #{graphql_type.inspect}"
+          raise "Unknown GraphQL type kind: #{graphql_type.graphql_name} (#{graphql_type.kind.inspect})"
         end
-      else
-        raise "Unknown GraphQL type: #{graphql_type.inspect}"
       end
     end
 

@@ -13,5 +13,8 @@ module GraphQLClient
 
     sig {abstract.returns(T::Hash[String, T.untyped])}
     def raw_result; end
+
+    sig {abstract.returns(String)}
+    def __typename; end
   end
 end

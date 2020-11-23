@@ -9,6 +9,14 @@ module GraphQLClient
       T.all(Module, QueryContainer)
     end
 
+    VALIDATION_RULES = T.let(
+      [
+        *GraphQL::StaticValidation::ALL_RULES,
+        InterfacesAndUnionsHaveTypename,
+      ].freeze,
+      T::Array[T.untyped]
+    )
+
     sig {params(other: Module).void}
     def self.included(other)
       Kernel.raise(ValidationError, "You need to `extend GraphQLClient::QueryContainer`, you cannot use `include`.")
@@ -61,7 +69,7 @@ module GraphQLClient
         Kernel.raise(ValidationError, "Query containers must be classes or modules that are assigned to constants.")
       end
 
-      validator = GraphQL::StaticValidation::Validator.new(schema: schema)
+      validator = GraphQL::StaticValidation::Validator.new(schema: schema, rules: VALIDATION_RULES)
       query = GraphQL::Query.new(schema, query_text)
       validation_result = validator.validate(query)
       validation_result[:errors].each do |error|

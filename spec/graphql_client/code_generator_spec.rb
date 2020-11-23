@@ -25,10 +25,12 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(query_class.name).to eq "FakeContainer::SomeQuery"
     expect(query_class.operation_name).to eq "SomeQuery"
     expect(query_class.defined_methods.map(&:name)).to eq [:viewer]
+    expect(query_class.typename).to eq "Query"
 
     viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
     expect(viewer_class).to be_a GraphQLClient::CodeGenerator::LeafClass
     expect(viewer_class.name).to eq "FakeContainer::SomeQuery::Viewer"
+    expect(viewer_class.typename).to eq "User"
     expect(viewer_class.defined_methods.map(&:name)).to match_array([:login, :created_at])
 
     login_method = viewer_class.defined_methods.detect {|dm| dm.name == :login}
@@ -90,6 +92,8 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(codes_of_conduct.signature).to eq "T.nilable(T::Array[T.nilable(FakeContainer::SomeQuery::CodesOfConduct)])"
 
     subclass = generator.classes["FakeContainer::SomeQuery::CodesOfConduct"]
+    expect(subclass.typename).to eq "CodeOfConduct"
+
     url_method = subclass.defined_methods.detect {|dm| dm.name == :url}
     expect(url_method).to_not be_nil
     expect(url_method.signature).to eq "T.nilable(T.any(Numeric, String, T::Boolean))"
@@ -182,7 +186,29 @@ RSpec.describe GraphQLClient::CodeGenerator do
 
     me_class = generator.classes["FakeContainer::AliasedQuery::Me"]
     expect(me_class.defined_methods.map(&:name)).to eq [:type]
+    expect(me_class.typename).to eq "User"
 
     type_check(generator.contents)
+  end
+
+  describe "querying on interface types" do
+    it "uses the typename retrieved from the server" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          node(id: "abc") {
+            __typename
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
+      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      expect(node_class.typename).to be_nil
+      puts(generator.formatted_contents)
+      type_check(generator.contents)
+    end
   end
 end

@@ -71,14 +71,22 @@ module GraphQLClient
           p.comma_breakable
   
         STRING
+
+        object_group = <<~STRING.strip
+          p.breakable
+          p.text('__typename')
+          p.text(': ')
+          p.pp(__typename)
+
+          #{inspect_lines}
+        STRING
+
   
         <<~STRING
           sig {override.params(p: PP::PPMethods).void}
           def pretty_print(p)
             p.object_group(self) do
-              p.breakable
-  
-              #{indent(inspect_lines, 2).strip}
+              #{indent(object_group, 2).strip}
             end
           end
         STRING

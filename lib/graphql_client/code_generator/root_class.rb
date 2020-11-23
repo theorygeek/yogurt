@@ -12,6 +12,7 @@ module GraphQLClient
       const :name, String
       const :schema, GRAPHQL_SCHEMA
       const :operation_name, String
+      const :typename, String
       const :query_container, QueryContainer::CONTAINER
       const :defined_methods, T::Array[DefinedMethod]
       const :variables, T::Array[VariableDefinition]
@@ -24,6 +25,12 @@ module GraphQLClient
         original_query = declaration.query_text
         parsed_query = GraphQL.parse(original_query)
         reprinted_query = GraphQL::Language::Printer.new.print(parsed_query)
+
+        dynamic_methods = <<~STRING.strip
+          #{defined_methods.map(&:to_ruby).join("\n")}
+
+          #{pretty_print}
+        STRING
 
         <<~STRING
           class #{name} < GraphQLClient::Query
@@ -50,14 +57,15 @@ module GraphQLClient
               @result
             end
 
+            sig {override.returns(String)}
+            def __typename
+              #{typename.inspect}
+            end
+
             sig {override.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
             def errors
               @errors
             end
-
-            #{indent(defined_methods.map(&:to_ruby).join("\n"), 1).strip}
-
-            #{indent(pretty_print, 1).strip}
           end
         STRING
       end

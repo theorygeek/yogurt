@@ -42,8 +42,84 @@ RSpec.describe GraphQLClient::QueryContainer do
         }
       }
     GRAPHQL
-    
+
     expect {FakeContainer.declare_query(query_text)}
       .to raise_error(GraphQLClient::ValidationError, /name for each of the operations/)
+  end
+
+  describe 'InterfacesAndUnionsHaveTypename' do
+    it "raises an error if a query against an interface type doesn't include __typename" do
+      query_text = <<~'GRAPHQL'
+        query Foobar {
+          node(id: "foobar") {
+            id
+          }
+        }
+      GRAPHQL
+
+      expect {FakeContainer.declare_query(query_text)}
+        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+    end
+
+    it "raises an error if the __typename field is aliased" do
+      query_text = <<~'GRAPHQL'
+        query Foobar {
+          node(id: "foobar") {
+            id
+            type: __typename
+          }
+        }
+      GRAPHQL
+
+      expect {FakeContainer.declare_query(query_text)}
+        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+    end
+
+    it "doesn't raise an error if the interface includes __typename" do
+      query_text = <<~'GRAPHQL'
+        query Foobar {
+          node(id: "foobar") {
+            id
+            __typename
+          }
+        }
+      GRAPHQL
+
+      expect {FakeContainer.declare_query(query_text)}.to_not raise_error
+    end
+
+    it "raises an error even if there is an inline fragment spread that includes __typename" do
+      query_text = <<~'GRAPHQL'
+        query Foobar {
+          node(id: "foobar") {
+            id
+            ... on Node {
+              __typename
+            }
+          }
+        }
+      GRAPHQL
+
+      expect {FakeContainer.declare_query(query_text)}
+        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+    end
+
+    it "raises an error even if there is a named fragment spread that includes __typename" do
+      query_text = <<~'GRAPHQL'
+        query Foobar {
+          node(id: "foobar") {
+            id
+            ...node
+          }
+        }
+
+        fragment node on Node {
+          __typename
+        }
+      GRAPHQL
+
+      expect {FakeContainer.declare_query(query_text)}
+        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+    end
   end
 end
