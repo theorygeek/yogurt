@@ -147,6 +147,7 @@ module GraphQLClient
       generate_methods_from_selections(
         module_name: module_name,
         owner_type: owner_type,
+        parent_types: [],
         selections: selections,
         methods: methods,
         next_dependencies: next_dependencies
@@ -194,12 +195,13 @@ module GraphQLClient
       params(
         module_name: String,
         owner_type: T.untyped,
+        parent_types: T::Array[T.untyped],
         selections: T::Array[T.untyped],
         methods: T::Hash[Symbol, DefinedMethod],
         next_dependencies: T::Array[String],
       ).void
     end
-    private def generate_methods_from_selections(module_name:, owner_type:, selections:, methods:, next_dependencies:)
+    private def generate_methods_from_selections(module_name:, owner_type:, parent_types:, selections:, methods:, next_dependencies:)
       # First pass, handle the fields that are directly selected.
       selections.each do |node|
         next unless node.is_a?(GraphQL::Language::Nodes::Field)
@@ -251,19 +253,35 @@ module GraphQLClient
         
         subselections = node.selections
         fragment_type = schema.types[node.type.name]
+        fragment_parent_types = [*parent_types, owner_type]
         fragment_methods = {}
         generate_methods_from_selections(
           module_name: module_name,
           owner_type: fragment_type,
+          parent_types: fragment_parent_types,
           selections: subselections,
           methods: fragment_methods,
           next_dependencies: next_dependencies
         )
 
-        schema.possible_types(fragment_type).each do |object_type|
-          hash = contingent_methods[object_type.graphql_name] ||= {}
-          hash.merge!(fragment_methods)
-          contingent_method_names.merge(fragment_methods.keys)
+        # Determine if this is actually a contingent type. If a fragment is being spread
+        # inside of an object type that will always be one of the fragment's possible types,
+        # then we can treat these are ordinary methods that can't be null.
+
+        root_type = fragment_parent_types.fetch(0)
+        root_possible_types = schema.possible_types(root_type)
+        leaf_possible_types = [*fragment_parent_types, fragment_type].reduce(root_possible_types) do |possible_types, next_type|
+          possible_types & schema.possible_types(next_type)
+        end
+
+        if root_possible_types == leaf_possible_types
+          methods.merge!(fragment_methods)
+        else
+          schema.possible_types(fragment_type).each do |object_type|
+            hash = contingent_methods[object_type.graphql_name] ||= {}
+            hash.merge!(fragment_methods)
+            contingent_method_names.merge(fragment_methods.keys)
+          end
         end
       end
 

@@ -196,8 +196,8 @@ RSpec.describe GraphQLClient::CodeGenerator do
     type_check(generator.contents)
   end
 
-  describe "querying on interface types" do
-    it "uses the typename retrieved from the server" do
+  describe "fragments" do
+    it "uses the typename retrieved from the server when querying interfaces" do
       query_text = <<~'GRAPHQL'
         query NodeQuery {
           node(id: "abc") {
@@ -240,6 +240,80 @@ RSpec.describe GraphQLClient::CodeGenerator do
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
       state_method = node_class.defined_methods.detect {|dm| dm.name == :state}
       expect(state_method).to_not be_nil
+      expect(state_method.signature).to start_with "T.nilable("
+      expect(state_method.body).to include '__typename == "Project"'
+      expect(state_method.body).to include '__typename == "ProjectCard"'
+      expect(state_method.body).to include '__typename == "PullRequest"'
+      type_check(generator.contents)
+    end
+
+    it "handles double-nested fragments" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          node(id: "abc") {
+            __typename
+            ... on User {
+              ... on Actor {
+                login
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
+      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      login_method = node_class.defined_methods.detect {|dm| dm.name == :login}
+      expect(login_method.body).to include 'return unless __typename == "User"'
+      expect(login_method.body).to include 'return unless __typename == "Bot" || __typename == "EnterpriseUserAccount" || __typename == "Mannequin" || __typename == "Organization" || __typename == "User"'
+      type_check(generator.contents)
+    end
+
+    it "marks a field nullable when it is impossible to access" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          viewer {
+            ... on Node {
+              ... on Commit {
+                id
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+      
+      viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
+      id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
+      expect(id_method.signature).to start_with "T.nilable"
+      puts(generator.formatted_contents)
+      type_check(generator.contents)
+    end
+
+    it "does not mark a field nullable when a fragment is used against an object type" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          viewer {
+            ... on Node {
+              id
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+      
+      viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
+      id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
+      expect(id_method.signature).to_not include "T.nilable"
       type_check(generator.contents)
     end
 
