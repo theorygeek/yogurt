@@ -8,19 +8,19 @@ module GraphQLClient
 
     interface!
 
-    sig {abstract.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
+    sig {abstract.returns(T.nilable(T::Array[OBJECT_TYPE]))}
     def errors; end
 
     class OnlyErrors
       extend T::Sig
       include ErrorResult
 
-      sig {params(errors: T::Array[T::Hash[String, T.untyped]]).void}
+      sig {params(errors: T::Array[OBJECT_TYPE]).void}
       def initialize(errors)
-        @errors = T.let(errors, T::Array[T::Hash[String, T.untyped]])
+        @errors = T.let(errors, T::Array[OBJECT_TYPE])
       end
 
-      sig {override.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
+      sig {override.returns(T.nilable(T::Array[OBJECT_TYPE]))}
       def errors
         @errors
       end

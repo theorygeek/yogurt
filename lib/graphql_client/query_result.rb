@@ -11,7 +11,9 @@ module GraphQLClient
 
     interface!
 
-    sig {abstract.returns(T::Hash[String, T.untyped])}
+    class UnexpectedGraphQLTypeEncounteredError < StandardError; end
+
+    sig {abstract.returns(OBJECT_TYPE)}
     def raw_result; end
 
     sig {abstract.returns(String)}

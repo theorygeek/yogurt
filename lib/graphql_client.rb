@@ -10,6 +10,7 @@ module GraphQLClient
   
   GRAPHQL_SCHEMA = T.type_alias {T.class_of(GraphQL::Schema)}
   SCALAR_TYPE = T.type_alias {T.any(::String, T::Boolean, Numeric)}
+  OBJECT_TYPE = T.type_alias {T::Hash[String, T.untyped]}
 
   sig do
     params(

@@ -26,20 +26,25 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(query_class.operation_name).to eq "SomeQuery"
     expect(query_class.defined_methods.map(&:name)).to eq [:viewer]
     expect(query_class.typename).to eq "Query"
+    expect(query_class.to_ruby).to include "def viewer"
+    expect(query_class.to_ruby).to include "def pretty_print"
+    expect(query_class.to_ruby).to include "def self.execute"
 
     viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
     expect(viewer_class).to be_a GraphQLClient::CodeGenerator::LeafClass
     expect(viewer_class.name).to eq "FakeContainer::SomeQuery::Viewer"
     expect(viewer_class.typename).to eq "User"
+    expect(viewer_class.to_ruby).to include "def login"
+    expect(viewer_class.to_ruby).to include "def created_at"
     expect(viewer_class.defined_methods.map(&:name)).to match_array([:login, :created_at])
 
     login_method = viewer_class.defined_methods.detect {|dm| dm.name == :login}
     expect(login_method.signature).to eq "String"
-    expect(login_method.body).to eq 'T.let(raw_result["login"], String)'
+    expect(login_method.body).to eq 'T.cast(raw_result["login"], String)'
 
     created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
     expect(created_at_method.signature).to eq "T.any(Numeric, String, T::Boolean)"
-    expect(created_at_method.body).to eq 'T.let(raw_result["createdAt"], T.any(Numeric, String, T::Boolean))'
+    expect(created_at_method.body).to eq 'T.cast(raw_result["createdAt"], T.any(Numeric, String, T::Boolean))'
 
     # Generated code should pass sorbet typechecking
     type_check(generator.contents)
@@ -207,7 +212,69 @@ RSpec.describe GraphQLClient::CodeGenerator do
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
       expect(node_class.typename).to be_nil
-      puts(generator.formatted_contents)
+      type_check(generator.contents)
+    end
+
+    it "generates a composite type if multiple return types are possible" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          node(id: "abc") {
+            __typename
+            ... on Project {
+              state
+            }
+            ... on ProjectCard {
+              state
+            }
+            ... on PullRequest {
+              state
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
+      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      state_method = node_class.defined_methods.detect {|dm| dm.name == :state}
+      expect(state_method).to_not be_nil
+      type_check(generator.contents)
+    end
+
+    it "generates composite types when multiple fields are given the same alias" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery($id: ID!) {
+          node(id: $id) {
+            __typename
+            ... on CommitComment {
+              field: viewerCannotUpdateReasons
+            }
+            ... on CommitCommentThread {
+              field: position
+            }
+            ... on CrossReferencedEvent {
+              field: actor {
+                __typename
+                login
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
+      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
+      expect(field_method).to_not be_nil
+      expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
+      expect(field_method.body).to include '__typename == "CommitComment"'
+      expect(field_method.body).to include '__typename == "CommitCommentThread"'
+      expect(field_method.body).to include '__typename == "CrossReferencedEvent"'
       type_check(generator.contents)
     end
   end

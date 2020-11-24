@@ -141,51 +141,18 @@ module GraphQLClient
       .returns(TypedOutput)
     end
     private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil, dependencies: [])
-      type_kind = owner_type.kind
-      methods = T.let([], T::Array[DefinedMethod])
+      methods = T.let({}, T::Hash[Symbol, DefinedMethod])
       next_dependencies = [module_name, *dependencies]
-      selections.each do |node|
-        case node
-        when GraphQL::Language::Nodes::Field
-          # Get the result type for this particular selection
-          field_name = node.name
+      
+      generate_methods_from_selections(
+        module_name: module_name,
+        owner_type: owner_type,
+        selections: selections,
+        methods: methods,
+        next_dependencies: next_dependencies
+      )
 
-          # We always include a `__typename` method on query result objects,
-          # so it's redundant here.
-          next if field_name == '__typename' && node.alias.nil?
-
-          field_definition = owner_type.get_field(field_name)
-          
-          if field_definition.nil?
-            field_definition = if owner_type == schema.query && (entry_point_field = schema.introspection_system.entry_point(name: field_name))
-              is_introspection = true
-              entry_point_field
-            elsif (dynamic_field = schema.introspection_system.dynamic_field(name: field_name))
-              is_introspection = true
-              dynamic_field
-            else
-              raise "Invariant: no field for #{owner_type}.#{field_name}"
-            end
-          end
-
-          input_name = node.alias || node.name
-          next_name = "#{module_name}::#{camelize(input_name)}"
-          return_type = generate_output_type(
-            field_definition.type,
-            node.selections,
-            next_name,
-            input_name,
-            next_dependencies
-          )
-          
-          method_name = generate_method_name(underscore(input_name))
-          methods.push(DefinedMethod.new(
-            name: method_name, 
-            signature: return_type.signature,
-            body: return_type.deserializer,
-          ))
-        end
-      end
+      type_kind = owner_type.kind
 
       if operation_declaration
         add_class(
@@ -195,7 +162,7 @@ module GraphQLClient
             operation_name: operation_declaration.operation_name,
             typename: owner_type.graphql_name,
             query_container: operation_declaration.declaration.container,
-            defined_methods: methods,
+            defined_methods: methods.values,
             variables: operation_declaration.variables.map {|v| variable_definition(v)},
             dependencies: dependencies,
           )
@@ -204,7 +171,7 @@ module GraphQLClient
         add_class(
           LeafClass.new(
             name: module_name,
-            defined_methods: methods,
+            defined_methods: methods.values,
             dependencies: dependencies,
             typename: if type_kind.abstract?
               nil
@@ -221,6 +188,154 @@ module GraphQLClient
           #{module_name}.new(raw_value)
         STRING
       )
+    end
+
+    sig do
+      params(
+        module_name: String,
+        owner_type: T.untyped,
+        selections: T::Array[T.untyped],
+        methods: T::Hash[Symbol, DefinedMethod],
+        next_dependencies: T::Array[String],
+      ).void
+    end
+    private def generate_methods_from_selections(module_name:, owner_type:, selections:, methods:, next_dependencies:)
+      # First pass, handle the fields that are directly selected.
+      selections.each do |node|
+        next unless node.is_a?(GraphQL::Language::Nodes::Field)
+        # Get the result type for this particular selection
+        field_name = node.name
+
+        # We always include a `__typename` method on query result objects,
+        # so it's redundant here.
+        next if field_name == '__typename' && node.alias.nil?
+
+        field_definition = owner_type.get_field(field_name)
+        
+        if field_definition.nil?
+          field_definition = if owner_type == schema.query && (entry_point_field = schema.introspection_system.entry_point(name: field_name))
+            is_introspection = true
+            entry_point_field
+          elsif (dynamic_field = schema.introspection_system.dynamic_field(name: field_name))
+            is_introspection = true
+            dynamic_field
+          else
+            raise "Invariant: no field for #{owner_type}.#{field_name}"
+          end
+        end
+
+        input_name = node.alias || node.name
+        next_name = "#{module_name}::#{camelize(input_name)}"
+        return_type = generate_output_type(
+          field_definition.type,
+          node.selections,
+          next_name,
+          input_name,
+          next_dependencies
+        )
+        
+        method_name = generate_method_name(underscore(input_name))
+        methods[method_name] = DefinedMethod.new(
+          name: method_name, 
+          signature: return_type.signature,
+          body: return_type.deserializer,
+        )
+      end
+
+      # Second pass, handle fragment spreads
+      contingent_methods = T.let({}, T::Hash[String, T::Hash[Symbol, DefinedMethod]])
+      contingent_method_names = T.let(Set.new, T::Set[Symbol])
+
+      selections.each do |node|
+        next unless node.is_a?(GraphQL::Language::Nodes::InlineFragment)
+        
+        subselections = node.selections
+        fragment_type = schema.types[node.type.name]
+        fragment_methods = {}
+        generate_methods_from_selections(
+          module_name: module_name,
+          owner_type: fragment_type,
+          selections: subselections,
+          methods: fragment_methods,
+          next_dependencies: next_dependencies
+        )
+
+        schema.possible_types(fragment_type).each do |object_type|
+          hash = contingent_methods[object_type.graphql_name] ||= {}
+          hash.merge!(fragment_methods)
+          contingent_method_names.merge(fragment_methods.keys)
+        end
+      end
+
+      contingent_method_names.each do |method_name|
+        # If we are already selecting this field at the top level, skip it.
+        next if methods.key?(method_name)
+
+        # Construct a hash of graphql_type => DefinedMethod, so that we can build
+        # a composite method that represents all of them.
+        possible_methods = T.let({}, T::Hash[String, DefinedMethod])
+
+        contingent_methods.each do |type_name, fragment_methods|
+          defined_method = fragment_methods[method_name]
+          next if defined_method.nil?
+          possible_methods[type_name] = defined_method
+        end
+
+        signatures = possible_methods.each_value.map do |defined_method|
+          signature = defined_method.signature
+          next signature unless signature.start_with?("T.nilable(")
+          
+          # Strip "T.nilable(" off the front, and ")" off the end
+          T.must(signature[10...-1])
+        end
+
+        signatures.uniq!
+        signatures.sort!
+        composite_signature = if signatures.size == 1
+          "T.nilable(#{signatures.fetch(0)})"
+        else
+          "T.nilable(T.any(#{signatures.join(', ')}))"
+        end
+
+        # Hash where the first value is a boolean expression (ie, "typename == 'A' || typename == 'B'")
+        # and the second value is the conversion code for casting the field value appropriately
+        conditions = T.let([], T::Array[[String, String]])
+        
+        possible_methods.group_by {|_, defined_method| defined_method.body}.each do |body, group|
+          type_names = group.map {|type, _| type}.uniq.sort
+          conditions << [
+            type_names.map {|type| "__typename == #{type.inspect}"}.join(' || '),
+            body
+          ]
+        end
+
+        conditions.sort!
+        
+        if conditions.size == 1
+          composite_body = <<~STRING
+            return unless #{conditions.fetch(0)[0]}
+            #{conditions.fetch(0)[1]}
+          STRING
+        else
+          composite_body = +<<~STRING
+            if #{conditions.fetch(0)[0]}
+              #{indent(conditions.fetch(0)[1], 1).strip}
+          STRING
+
+          T.must(conditions[1..-1]).each do |(condition, body)|
+            composite_body << "elsif #{condition}\n"
+            composite_body << "#{indent(body, 1).rstrip}\n"
+          end
+
+          composite_body << "end"
+        end
+
+        methods[method_name] = DefinedMethod.new(
+          name: method_name,
+          signature: composite_signature,
+          body: composite_body
+        )
+      end
     end
 
     sig do
@@ -365,23 +480,24 @@ module GraphQLClient
       ).returns(TypedOutput)
     end
     def unwrapped_graphql_type_to_output_type(graphql_type, subselections, next_module_name, dependencies)
+      # TODO: Once https://github.com/sorbet/sorbet/issues/649 is fixed, change the `cast`'s back to `let`'s
       if graphql_type == GraphQL::Types::Boolean
         TypedOutput.new(
           signature: "T::Boolean",
-          deserializer: 'T.let(raw_value, T::Boolean)'
+          deserializer: 'T.cast(raw_value, T::Boolean)'
         )
       elsif graphql_type == GraphQL::Types::BigInt
         deserializer_or_default(T.unsafe(GraphQL::Types::BigInt).graphql_name) do
           TypedOutput.new(
             signature: "Integer",
-            deserializer: 'T.let(raw_value, T.any(String, Integer)).to_i'
+            deserializer: 'T.cast(raw_value, T.any(String, Integer)).to_i'
           )
         end
       elsif graphql_type == GraphQL::Types::ID
         deserializer_or_default('ID') do
           TypedOutput.new(
             signature: "String",
-            deserializer: 'T.let(raw_value, String)'
+            deserializer: 'T.cast(raw_value, String)'
           )
         end
       elsif graphql_type == GraphQL::Types::ISO8601Date
@@ -395,17 +511,17 @@ module GraphQLClient
       elsif graphql_type == GraphQL::Types::Int
         TypedOutput.new(
           signature: "Integer",
-          deserializer: 'T.let(raw_value, Integer)'
+          deserializer: 'T.cast(raw_value, Integer)'
         )
       elsif graphql_type == GraphQL::Types::Float
         TypedOutput.new(
           signature: "Float",
-          deserializer: 'T.let(raw_value, Float)'
+          deserializer: 'T.cast(raw_value, Float)'
         )
       elsif graphql_type == GraphQL::Types::String
         TypedOutput.new(
           signature: "String",
-          deserializer: 'T.let(raw_value, String)'
+          deserializer: 'T.cast(raw_value, String)'
         )
       else
         type_kind = graphql_type.kind
@@ -415,13 +531,13 @@ module GraphQLClient
   
           TypedOutput.new(
             signature: klass_name,
-            deserializer: "#{klass_name}.deserialize(T.let(raw_value, String))"
+            deserializer: "#{klass_name}.deserialize(raw_value)"
           )
         elsif type_kind.scalar?
           deserializer_or_default(graphql_type.graphql_name) do
             TypedOutput.new(
               signature: T.unsafe(GraphQLClient::SCALAR_TYPE).name,
-              deserializer: "T.let(raw_value, #{T.unsafe(GraphQLClient::SCALAR_TYPE).name})"
+              deserializer: "T.cast(raw_value, #{T.unsafe(GraphQLClient::SCALAR_TYPE).name})"
             )
           end
         elsif type_kind.composite?

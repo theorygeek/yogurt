@@ -28,7 +28,6 @@ module GraphQLClient
 
         dynamic_methods = <<~STRING.strip
           #{defined_methods.map(&:to_ruby).join("\n")}
-
           #{pretty_print}
         STRING
 
@@ -46,13 +45,13 @@ module GraphQLClient
 
             #{indent(execute_method, 1).strip}
 
-            sig {params(data: T::Hash[String, T.untyped], errors: T.nilable(T::Array[T::Hash[String, T.untyped]])).void}
+            sig {params(data: GraphQLClient::OBJECT_TYPE, errors: T.nilable(T::Array[GraphQLClient::OBJECT_TYPE])).void}
             def initialize(data, errors)
-              @result = T.let(data, T::Hash[String, T.untyped])
-              @errors = T.let(errors, T.nilable(T::Array[T::Hash[String, T.untyped]]))
+              @result = T.let(data, GraphQLClient::OBJECT_TYPE)
+              @errors = T.let(errors, T.nilable(T::Array[GraphQLClient::OBJECT_TYPE]))
             end
 
-            sig {override.returns(T::Hash[String, T.untyped])}
+            sig {override.returns(GraphQLClient::OBJECT_TYPE)}
             def raw_result
               @result
             end
@@ -62,10 +61,12 @@ module GraphQLClient
               #{typename.inspect}
             end
 
-            sig {override.returns(T.nilable(T::Array[T::Hash[String, T.untyped]]))}
+            sig {override.returns(T.nilable(T::Array[GraphQLClient::OBJECT_TYPE]))}
             def errors
               @errors
             end
+
+            #{indent(dynamic_methods, 1).strip}
           end
         STRING
       end

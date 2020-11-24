@@ -7,7 +7,7 @@ module GraphQLClient
     extend T::Helpers
     abstract!
 
-    sig {params(result: T::Hash[String, T.untyped]).returns(T.any(T.attached_class, GraphQLClient::ErrorResult))}
+    sig {params(result: OBJECT_TYPE).returns(T.any(T.attached_class, GraphQLClient::ErrorResult))}
     def self.from_result(result)
       data = result['data']
       if data
@@ -17,7 +17,7 @@ module GraphQLClient
       end
     end
 
-    sig {params(data: T::Hash[String, T.untyped], errors: T.nilable(T::Hash[String, T.untyped])).void}
+    sig {params(data: OBJECT_TYPE, errors: T.nilable(OBJECT_TYPE)).void}
     def initialize(data, errors); end
   end
 end

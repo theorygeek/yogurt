@@ -35,12 +35,12 @@ module GraphQLClient
             extend T::Sig
             include GraphQLClient::QueryResult
 
-            sig {params(result: T::Hash[String, T.untyped]).void}
+            sig {params(result: GraphQLClient::OBJECT_TYPE).void}
             def initialize(result)
-              @result = T.let(result, T::Hash[String, T.untyped])
+              @result = T.let(result, GraphQLClient::OBJECT_TYPE)
             end
 
-            sig {override.returns(T::Hash[String, T.untyped])}
+            sig {override.returns(GraphQLClient::OBJECT_TYPE)}
             def raw_result
               @result
             end
