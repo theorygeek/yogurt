@@ -66,6 +66,7 @@ module GraphQLClient
       sig {override.params(other: DefinedMethod).returns(T::Boolean)}
       def merge?(other)
         return false unless other.is_a?(FieldAccessMethod)
+
         field_access_paths.concat(other.field_access_paths)
         true
       end

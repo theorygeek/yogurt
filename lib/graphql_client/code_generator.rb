@@ -189,9 +189,7 @@ module GraphQLClient
             ),
           )
         elsif klass_definition.is_a?(LeafClass)
-          if klass_definition.graphql_type != owner_type
-            raise "Attempting to extend existing class with a different owner type: #{klass_definition.graphql_type.graphql_name} vs #{owner_type.graphql_name}"
-          end
+          raise "Attempting to extend existing class with a different owner type: #{klass_definition.graphql_type.graphql_name} vs #{owner_type.graphql_name}" if klass_definition.graphql_type != owner_type
 
           klass_definition.merge_defined_methods(defined_methods)
           klass_definition.dependencies |= dependencies
