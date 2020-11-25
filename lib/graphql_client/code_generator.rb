@@ -28,6 +28,7 @@ module GraphQLClient
       @classes = T.let({}, T::Hash[String, DefinedClass])
     end
 
+    # Returns the contents of the generated classes, in dependency order, as a single file.
     sig {returns(String)}
     def contents
       definitions = DefinedClassSorter.new(classes.values)
@@ -45,7 +46,32 @@ module GraphQLClient
       STRING
     end
 
-    # Returns the contents
+    # Returns the contents of the generated classes, split into separate files (one per class).
+    # Classes are returned in dependency order.
+    sig {returns(T::Array[GeneratedFile])}
+    def content_files
+      DefinedClassSorter.new(classes.values).sorted_classes.map do |klass|
+        GeneratedFile.new(
+          constant_name: klass.name,
+          dependencies: klass.dependencies,
+          code: klass.to_ruby,
+          type: case klass
+          when RootClass
+            GeneratedFile::FileType::OPERATION
+          when LeafClass
+            GeneratedFile::FileType::OBJECT_RESULT
+          when InputClass
+            GeneratedFile::FileType::INPUT_OBJECT
+          when EnumClass
+            GeneratedFile::FileType::ENUM
+          else
+            raise "Unhandled class type: #{klass.inspect}"
+          end
+        )
+      end
+    end
+
+    # Returns the contents with syntax highlighting (if CodeRay is available)
     sig {returns(String)}
     def formatted_contents
       if defined?(CodeRay)
