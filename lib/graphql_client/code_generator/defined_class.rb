@@ -4,6 +4,7 @@
 module GraphQLClient
   class CodeGenerator
     module DefinedClass
+      include Kernel
       extend T::Sig
       extend T::Helpers
       abstract!

@@ -61,6 +61,15 @@ module GraphQLClient
       # GraphQL schema for the query that is executing
       const :schema, GRAPHQL_SCHEMA
 
+      # Attempts to merge this method with the other defined method. Returns true if
+      # successful, false if they are incompatible.
+      sig {override.params(other: DefinedMethod).returns(T::Boolean)}
+      def merge?(other)
+        return false unless other.is_a?(FieldAccessMethod)
+        field_access_paths.concat(other.field_access_paths)
+        true
+      end
+
       sig {override.returns(String)}
       def to_ruby
         <<~STRING

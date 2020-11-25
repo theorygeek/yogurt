@@ -88,7 +88,7 @@ module GraphQLClient
 
     sig {params(definition: DefinedClass).void}
     def add_class(definition)
-      raise "Already have class" if @classes.key?(definition.name)
+      raise "Attempting to redefine class #{definition.name}" if @classes.key?(definition.name)
 
       @classes[definition.name] = definition
     end
@@ -177,15 +177,27 @@ module GraphQLClient
           ),
         )
       else
-        add_class(
-          LeafClass.new(
-            name: module_name,
-            schema: schema,
-            defined_methods: defined_methods,
-            dependencies: dependencies,
-            graphql_type: owner_type,
-          ),
-        )
+        klass_definition = @classes[module_name]
+        if klass_definition.nil?
+          add_class(
+            LeafClass.new(
+              name: module_name,
+              schema: schema,
+              defined_methods: defined_methods,
+              dependencies: dependencies,
+              graphql_type: owner_type,
+            ),
+          )
+        elsif klass_definition.is_a?(LeafClass)
+          if klass_definition.graphql_type != owner_type
+            raise "Attempting to extend existing class with a different owner type: #{klass_definition.graphql_type.graphql_name} vs #{owner_type.graphql_name}"
+          end
+
+          klass_definition.merge_defined_methods(defined_methods)
+          klass_definition.dependencies |= dependencies
+        else
+          raise "Attempting to extend a class that is intended to be an object result class, but found the wrong type: #{klass_definition.inspect}"
+        end
       end
 
       TypedOutput.new(

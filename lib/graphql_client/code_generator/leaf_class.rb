@@ -11,9 +11,25 @@ module GraphQLClient
 
       const :name, String
       const :schema, GRAPHQL_SCHEMA
-      const :defined_methods, T::Array[DefinedMethod]
-      const :dependencies, T::Array[String]
       const :graphql_type, T.untyped # rubocop:disable Sorbet/ForbidUntypedStructProps
+      prop :defined_methods, T::Array[DefinedMethod]
+      prop :dependencies, T::Array[String]
+
+      # Adds the defined methods to the ones that are already defined in the class
+      sig {params(extra_methods: T::Array[DefinedMethod]).void}
+      def merge_defined_methods(extra_methods)
+        own_methods = defined_methods.map {|dm| [dm.name, dm]}.to_h
+        extra_methods.each do |extra|
+          own = own_methods[extra.name]
+          if own.nil?
+            own_methods[extra.name] = extra
+          elsif !own.merge?(extra)
+            raise "Cannot merge method #{extra.inspect} into #{own.inspect}"
+          end
+        end
+
+        self.defined_methods = own_methods.values
+      end
 
       sig {override.returns(String)}
       def to_ruby

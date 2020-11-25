@@ -479,19 +479,23 @@ RSpec.describe GraphQLClient::CodeGenerator do
                   __typename
                   ... on Node {
                     ... on Commit {
-                      id
+                      url
                     }
                   }
                 }
               }
             }
 
-            # ... on AddedToProjectEvent {
-            #   projectCard {
-            #     createdAt
-            #     note
-            #   }
-            # }
+            ... on AddedToProjectEvent {
+              projectCard {
+                createdAt
+                note
+                creator {
+                  __typename
+                  url
+                }
+              }
+            }
           }
         }
       GRAPHQL
@@ -500,8 +504,27 @@ RSpec.describe GraphQLClient::CodeGenerator do
       generator = GraphQLClient::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      project_card_class = generator.classes["FakeContainer::NodeQuery::ProjectCard"]
-      puts generator.formatted_contents
+      project_card_class = generator.classes["FakeContainer::NodeQuery::Node::ProjectCard"]
+      
+      # It should have methods for all of the fragments that are spread
+      expect(project_card_class.defined_methods.map(&:name)).to match_array([:creator, :created_at, :note])
+
+      # It should have paths to the `id` of the `creator` that match each of the fragments
+      project_card_creator_class = generator.classes["FakeContainer::NodeQuery::Node::ProjectCard::Creator"]
+      url_method = project_card_creator_class.defined_methods.detect {|dm| dm.name == :url}
+      expect(url_method).to_not be_nil
+      expect(url_method.field_access_paths.map(&:fragment_types)).to match_array([
+        ["Actor", "Node", "Commit"],
+        ["Actor"]
+      ])
+
+      # The presence of the extra fragment should remove the impossible access for the `url` field
+      expect(url_method.field_access_is_impossible?).to eq false
+      expect(url_method.field_access_is_guaranteed?).to eq true
+      expect(url_method.body).to eq "T.cast(raw_result[\"url\"], #{GraphQLClient::SCALAR_TYPE.name})"
+      expect(url_method.signature).to eq GraphQLClient::SCALAR_TYPE.name
+
+      puts(generator.formatted_contents)
       type_check(generator.contents)
     end
   end
