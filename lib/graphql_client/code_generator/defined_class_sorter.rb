@@ -23,7 +23,9 @@ module GraphQLClient
 
       sig {params(block: T.proc.params(arg0: DefinedClass).void).void}
       private def tsort_each_node(&block)
-        @classes.each_value(&block)
+        @classes.keys.sort.each do |key|
+          yield(@classes[key])
+        end
       end
 
       sig do
@@ -33,7 +35,7 @@ module GraphQLClient
         ).void
       end
       private def tsort_each_child(input_class, &block)
-        input_class.dependencies.map do |name|
+        input_class.dependencies.sort.each do |name|
           yield(@classes.fetch(name))
         end
       end

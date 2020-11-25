@@ -196,6 +196,64 @@ RSpec.describe GraphQLClient::CodeGenerator do
     type_check(generator.contents)
   end
 
+  describe '#content_files' do
+    it "generates the right output files" do
+      GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+
+      FakeContainer.declare_query(<<~'GRAPHQL')
+        query SomeQuery {
+          viewer {
+            createdAt
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(<<~'GRAPHQL')
+        query AliasedQuery {
+          me: viewer {
+            type: __typename
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(<<~'GRAPHQL')
+        mutation SampleMutation($checkRun: CreateCheckRunInput!, $issueId: ID!, $clientMutationId: String) {
+          createCheckRun(input: $checkRun) {
+            checkRun {
+              completedAt
+            }
+          }
+
+          pinIssue(input: {clientMutationId: $clientMutationId, issueId: $issueId}) {
+            clientMutationId
+          }
+        }
+      GRAPHQL
+
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      FakeContainer.declared_queries.each {|declaration| generator.generate(declaration)}
+      expect(generator.content_files.map(&:constant_name)).to eq([
+        "FakeContainer::AliasedQuery",
+        "FakeContainer::AliasedQuery::Me_Viewer",
+        "FakeSchema::CheckConclusionState",
+        "FakeSchema::CheckRunAction",
+        "FakeSchema::CheckAnnotationLevel",
+        "FakeSchema::CheckAnnotationRange",
+        "FakeSchema::CheckAnnotationData",
+        "FakeSchema::CheckRunOutputImage",
+        "FakeSchema::CheckRunOutput",
+        "FakeSchema::RequestableCheckStatusState",
+        "FakeSchema::CreateCheckRunInput",
+        "FakeContainer::SampleMutation",
+        "FakeContainer::SampleMutation::CreateCheckRun",
+        "FakeContainer::SampleMutation::CreateCheckRun::CheckRun",
+        "FakeContainer::SampleMutation::PinIssue",
+        "FakeContainer::SomeQuery",
+        "FakeContainer::SomeQuery::Viewer"
+      ])
+    end
+  end
+
   describe "fragments" do
     it "uses the typename retrieved from the server when querying interfaces" do
       query_text = <<~'GRAPHQL'

@@ -190,6 +190,8 @@ module GraphQLClient
       end
 
       if operation_declaration
+        variable_definitions = operation_declaration.variables.map {|v| variable_definition(v)}
+        variable_dependencies = variable_definitions.map(&:dependency).compact
         add_class(
           RootClass.new(
             name: module_name,
@@ -198,8 +200,8 @@ module GraphQLClient
             graphql_type: owner_type,
             query_container: operation_declaration.declaration.container,
             defined_methods: defined_methods,
-            variables: operation_declaration.variables.map {|v| variable_definition(v)},
-            dependencies: dependencies,
+            variables: variable_definitions,
+            dependencies: dependencies + variable_dependencies,
           ),
         )
       else
