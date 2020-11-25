@@ -74,7 +74,7 @@ module GraphQLClient
         executor = GraphQLClient.registered_schemas.fetch(schema)
         options_type = executor.options_type_alias.name
         signature_params = ["options: #{options_type}"]
-        
+
         params = if options_type.start_with?("T.nilable")
           ["options=nil"]
         else
@@ -83,7 +83,7 @@ module GraphQLClient
 
         variable_extraction = if variables.any?
           serializers = []
-        
+
           variables.sort.each do |variable|
             if variable.signature.start_with?("T.nilable")
               params.push("#{variable.name}: nil")
@@ -112,7 +112,7 @@ module GraphQLClient
               #{indent(signature_params.join(",\n"), 2).strip}
             ).returns(T.any(T.attached_class, GraphQLClient::ErrorResult))
           end
-          def self.execute(#{params.join(", ")})
+          def self.execute(#{params.join(', ')})
             raw_result = GraphQLClient.execute(
               query: QUERY_TEXT,
               schema: SCHEMA,

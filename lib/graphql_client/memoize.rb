@@ -15,11 +15,10 @@ module GraphQLClient
     end
     def memoize_as(name, &block)
       memoized_values = @memoized_values
-      if memoized_values.nil?
-        memoized_values = @memoized_values = {}
-      end
+      memoized_values = @memoized_values = {} if memoized_values.nil?
 
       return memoized_values[name] if memoized_values.key?(name)
+
       memoized_values[name] = yield
     end
 

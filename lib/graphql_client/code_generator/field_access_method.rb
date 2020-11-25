@@ -17,7 +17,7 @@ module GraphQLClient
         include Comparable
         include Memoize
         include Utils
-        
+
         const :typenames, T::Set[String]
         const :expression, String
 
@@ -37,6 +37,7 @@ module GraphQLClient
         sig {override.params(other: T.untyped).returns(T.nilable(Integer))}
         def <=>(other)
           return unless other.is_a?(FragmentBranch)
+
           comparison = sorted_typenames <=> other.sorted_typenames
           return comparison if comparison != 0
 
@@ -78,7 +79,7 @@ module GraphQLClient
         memoize_as(:branches) do
           # Construct the branches for each of the possible fragments. When grouped by
           # expression, the typenames possible for each branch should be disjoint. If they're
-          # not, the query would have been rejected as invalid by the `FieldsWillMerge` 
+          # not, the query would have been rejected as invalid by the `FieldsWillMerge`
           # static validation rule.
           result = field_access_paths.group_by(&:expression).map do |expression, group|
             typenames = T.let(Set.new, T::Set[String])
@@ -90,16 +91,17 @@ module GraphQLClient
           end
 
           # Invariant: Make sure that the behavior of the world matches our expectations.
-          invalid_branches = result.combination(2).select do |b1, b2| 
+          invalid_branches = result.combination(2).select do |b1, b2|
             next if b1.nil?
             next if b2.nil?
+
             b1.typenames.intersect?(b2.typenames)
           end
 
           if invalid_branches.any?
             raise <<~STRING
               Some field access branches have overlapping types, but different field resolution expressions.
-              #{invalid_branches.map {|b1, b2| {branch1: T.must(b1).serialize, branch2: T.must(b2).serialize}}.inspect}
+              #{invalid_branches.map {|b1, b2| { branch1: T.must(b1).serialize, branch2: T.must(b2).serialize }}.inspect}
             STRING
           end
 
@@ -145,7 +147,7 @@ module GraphQLClient
       sig {returns(String)}
       def signature
         reduce!
-        memoize_as(:signature) do          
+        memoize_as(:signature) do
           break IMPOSSIBLE_FIELD_SIGNATURE if field_access_is_impossible?
 
           signatures = field_access_paths.map do |path|
@@ -207,13 +209,9 @@ module GraphQLClient
         reduce!
         memoize_as(:root_possible_types) do
           root_type = field_access_paths[0]&.fragment_types&.fetch(0)
-          if root_type.nil?
-            break Set.new
-          end
+          break Set.new if root_type.nil?
 
-          if !field_access_paths.all? {|path| path.fragment_types.fetch(0) == root_type}
-            raise "Invariant violated: Expected all FieldAccessPath's to have the same root fragment type."
-          end
+          raise "Invariant violated: Expected all FieldAccessPath's to have the same root fragment type." if !field_access_paths.all? {|path| path.fragment_types.fetch(0) == root_type}
 
           schema.possible_types(schema.types[root_type]).map(&:graphql_name).to_set
         end
@@ -230,7 +228,7 @@ module GraphQLClient
           # query {
           #   node(id: "foobar") {
           #     ... on Commit {
-          #       ... on Node { 
+          #       ... on Node {
           #         ... on User {
           #           # This field can never be accessed, because User's will never be Commit's
           #           id
@@ -239,20 +237,21 @@ module GraphQLClient
           #     }
           #   }
           # }
-          
+
           field_access_paths.reject! {|path| path.compatible_object_types.empty?}
-  
+
           # Eliminate paths where the compatible object types are a subset of some other path's
           # compatible object types. (These are redundant.)
           supersets = T.let([], T::Array[FieldAccessPath])
-  
+
           # Put all of the supersets at the beginning of the array
           field_access_paths.sort_by! {|path| -path.compatible_object_types.size}
           field_access_paths.each do |path|
             next if supersets.any? {|super_path| super_path.compatible_object_types.superset?(path.compatible_object_types)}
+
             supersets.push(path)
           end
-  
+
           field_access_paths.select! {|path| supersets.include?(path)}
           field_access_paths.each(&:freeze)
           field_access_paths.freeze

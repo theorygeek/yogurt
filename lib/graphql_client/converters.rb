@@ -19,9 +19,7 @@ module GraphQLClient
 
       sig {override.params(raw_value: SCALAR_TYPE).returns(::Date)}
       def self.deserialize(raw_value)
-        if !raw_value.is_a?(String)
-          raise "Unexpected value returned for Date: #{raw_value.inspect}"
-        end
+        raise "Unexpected value returned for Date: #{raw_value.inspect}" if !raw_value.is_a?(String)
 
         ::Date.iso8601(raw_value)
       end
@@ -43,9 +41,7 @@ module GraphQLClient
 
       sig {override.params(raw_value: SCALAR_TYPE).returns(::Time)}
       def self.deserialize(raw_value)
-        if !raw_value.is_a?(String)
-          raise "Unexpected value returned for Time: #{raw_value.inspect}"
-        end
+        raise "Unexpected value returned for Time: #{raw_value.inspect}" if !raw_value.is_a?(String)
 
         ::Time.iso8601(raw_value)
       end

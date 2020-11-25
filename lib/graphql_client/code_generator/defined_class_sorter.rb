@@ -12,7 +12,7 @@ module GraphQLClient
       def initialize(classes)
         @classes = T.let(
           classes.map {|k| [k.name, k]}.to_h,
-          T::Hash[String, DefinedClass]
+          T::Hash[String, DefinedClass],
         )
       end
 
@@ -23,15 +23,13 @@ module GraphQLClient
 
       sig {params(block: T.proc.params(arg0: DefinedClass).void).void}
       private def tsort_each_node(&block)
-        @classes.each_value do |klass|
-          yield(klass)
-        end
+        @classes.each_value(&block)
       end
 
       sig do
         params(
           input_class: DefinedClass,
-          block: T.proc.params(arg0: DefinedClass).void
+          block: T.proc.params(arg0: DefinedClass).void,
         ).void
       end
       private def tsort_each_child(input_class, &block)

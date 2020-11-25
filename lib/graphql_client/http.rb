@@ -10,7 +10,7 @@ module GraphQLClient
     extend T::Sig
     extend T::Generic
     OptionsType = type_member
-    
+
     include QueryExecutor
 
     sig {params(uri: String, headers: T::Hash[String, String]).void}
@@ -41,7 +41,7 @@ module GraphQLClient
         query: String,
         operation_name: String,
         variables: T.nilable(T::Hash[String, T.untyped]),
-        options: T.nilable(OptionsType)
+        options: T.nilable(OptionsType),
       ).returns(T::Hash[String, T.untyped])
     end
     def execute(query, operation_name:, variables: nil, options: nil)
@@ -51,13 +51,13 @@ module GraphQLClient
       request["Accept"] = "application/json"
       request["Content-Type"] = "application/json"
 
-      headers(options).each do |name, value| 
+      headers(options).each do |name, value|
         request[name] = value
       end
 
       body = T.let({}, T::Hash[String, T.untyped])
       body["query"] = query
-      body["variables"] = variables if variables && variables.any?
+      body["variables"] = variables if variables&.any?
       body["operationName"] = operation_name
       request.body = JSON.generate(body)
 
@@ -66,7 +66,7 @@ module GraphQLClient
       when Net::HTTPOK, Net::HTTPBadRequest
         JSON.parse(response.body)
       else
-        {"errors" => [{"message" => "#{response.code} #{response.message}"}]}
+        { "errors" => [{ "message" => "#{response.code} #{response.message}" }] }
       end
     end
 

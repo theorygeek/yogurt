@@ -60,6 +60,7 @@ module GraphQLClient
       sig {params(camel_cased_word: String).returns(String)}
       def underscore(camel_cased_word)
         return camel_cased_word unless /[A-Z-]|::/.match?(camel_cased_word)
+
         word = camel_cased_word.to_s.gsub("::", "/")
         word.gsub!(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2')
         word.gsub!(/([a-z\d])([A-Z])/, '\1_\2')
@@ -67,27 +68,25 @@ module GraphQLClient
         word.downcase!
         word
       end
-  
+
       sig {params(term: String).returns(String)}
       def camelize(term)
         string = term.to_s
-        string = string.sub(/^[a-z\d]*/) { |match| match.capitalize }
-        string.gsub!(/(?:_|(\/))([a-z\d]*)/i) { "#{$1}#{$2.capitalize}" }
+        string = string.sub(/^[a-z\d]*/, &:capitalize)
+        string.gsub!(%r{(?:_|(/))([a-z\d]*)}i) {"#{Regexp.last_match(1)}#{Regexp.last_match(2).capitalize}"}
         string.gsub!("/", "::")
         string
       end
 
       sig {params(string: String, amount: Integer).returns(String)}
       def indent(string, amount)
-        return string if amount == 0
+        return string if amount.zero?
 
         padding = '  ' * amount
-  
+
         buffer = T.unsafe(String).new("", capacity: string.size)
         string.each_line do |line|
-          if line.size > 1 || line != "\n"
-            buffer << padding
-          end
+          buffer << padding if line.size > 1 || line != "\n"
           buffer << line
         end
 
@@ -98,15 +97,15 @@ module GraphQLClient
       def generate_method_name(desired_name)
         base_desired_name = desired_name
         escaping_level = 0
-        
+
         while PROTECTED_NAMES.include?(desired_name)
           escaping_level += 1
           desired_name = "#{base_desired_name}#{'_' * escaping_level}"
         end
-  
+
         desired_name.to_sym
       end
-  
+
       sig {params(methods: T::Array[DefinedMethod]).returns(String)}
       def generate_pretty_print(methods)
         inspect_lines = methods.map do |dm|
@@ -116,7 +115,7 @@ module GraphQLClient
             p.pp(#{dm.name})
           STRING
         end
-  
+
         inspect_lines = inspect_lines.join(<<~STRING)
           p.comma_breakable
   
@@ -131,7 +130,6 @@ module GraphQLClient
           #{inspect_lines}
         STRING
 
-  
         <<~STRING
           sig {override.params(p: PP::PPMethods).void}
           def pretty_print(p)

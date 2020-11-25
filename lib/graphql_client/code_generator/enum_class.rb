@@ -11,7 +11,7 @@ module GraphQLClient
 
       const :name, String
       const :serialized_values, T::Array[String]
-      
+
       sig {override.returns(T::Array[String])}
       def dependencies
         []
