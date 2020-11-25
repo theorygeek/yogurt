@@ -7,8 +7,13 @@ module GraphQLClient
       extend T::Sig
       include Utils
 
+      # Name of the method
       const :name, Symbol
+
+      # Sorbet signature for the method
       const :signature, String
+
+      # Body of the method
       const :body, String
 
       sig {returns(String)}

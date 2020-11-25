@@ -26,7 +26,6 @@ module GraphQLClient
 
         dynamic_methods = <<~STRING.strip
           #{defined_methods.map(&:to_ruby).join("\n")}
-
           #{pretty_print}
         STRING
 

@@ -268,13 +268,13 @@ RSpec.describe GraphQLClient::CodeGenerator do
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
       login_method = node_class.defined_methods.detect {|dm| dm.name == :login}
       expect(login_method.body).to include 'return unless __typename == "User"'
-      expect(login_method.body).to include 'return unless __typename == "Bot" || __typename == "EnterpriseUserAccount" || __typename == "Mannequin" || __typename == "Organization" || __typename == "User"'
+      expect(login_method.body).to_not include '__typename == "Bot"'
       type_check(generator.contents)
     end
 
     it "marks a field nullable when it is impossible to access" do
       query_text = <<~'GRAPHQL'
-        query NodeQuery {
+        query ViewerQuery {
           viewer {
             ... on Node {
               ... on Commit {
@@ -288,11 +288,72 @@ RSpec.describe GraphQLClient::CodeGenerator do
       FakeContainer.declare_query(query_text)
       generator = GraphQLClient::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
-      
+
+      viewer_class = generator.classes["FakeContainer::ViewerQuery::Viewer"]
+      id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
+      expect(id_method.signature).to eq "NilClass"
+      expect(id_method.body).to end_with "nil\n"
+      type_check(generator.contents)
+    end
+
+    it "handles nested fragments that are used for type detection" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          node(id: "foobar") {
+            __typename
+            ... on Actor {
+              ... on Bot {
+                id
+              }
+              ... on User {
+                id
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
+      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      id_method = node_class.defined_methods.detect {|dm| dm.name == :id}
+      expect(id_method.signature).to start_with "T.nilable"
+      expect(id_method.body).to include 'return unless __typename == "Bot" || __typename == "User"'
+      type_check(generator.contents)
+    end
+
+    it "handles multiple paths to the same field" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery {
+          viewer {
+            id
+            ... on Node {
+              ... on Actor {
+                ... on Bot {
+                  id
+                }
+                ... on User {
+                  id
+                }
+              }
+              ... on Commit {
+                id
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
       viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
       id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
-      expect(id_method.signature).to start_with "T.nilable"
-      puts(generator.formatted_contents)
+      expect(id_method.signature).to_not include "T.nilable"
+      expect(id_method.body).to_not include "__typename"
       type_check(generator.contents)
     end
 
@@ -334,6 +395,12 @@ RSpec.describe GraphQLClient::CodeGenerator do
                 login
               }
             }
+            ... on AddedToProjectEvent {
+              field: projectCard {
+                createdAt
+                note
+              }
+            }
           }
         }
       GRAPHQL
@@ -345,7 +412,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
       field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
       expect(field_method).to_not be_nil
-      expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
+      expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field_Actor, FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
       expect(field_method.body).to include '__typename == "CommitComment"'
       expect(field_method.body).to include '__typename == "CommitCommentThread"'
       expect(field_method.body).to include '__typename == "CrossReferencedEvent"'

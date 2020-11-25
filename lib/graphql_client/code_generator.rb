@@ -141,20 +141,19 @@ module GraphQLClient
       .returns(TypedOutput)
     end
     private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil, dependencies: [])
-      methods = T.let({}, T::Hash[Symbol, DefinedMethod])
+      methods = T.let({}, T::Hash[Symbol, T::Array[FieldAccessor]])
       next_dependencies = [module_name, *dependencies]
       
       generate_methods_from_selections(
         module_name: module_name,
         owner_type: owner_type,
-        parent_types: [],
+        parent_types: [owner_type],
         selections: selections,
         methods: methods,
         next_dependencies: next_dependencies
       )
 
       type_kind = owner_type.kind
-
       if operation_declaration
         add_class(
           RootClass.new(
@@ -163,7 +162,7 @@ module GraphQLClient
             operation_name: operation_declaration.operation_name,
             typename: owner_type.graphql_name,
             query_container: operation_declaration.declaration.container,
-            defined_methods: methods.values,
+            defined_methods: FieldAccessor.flatten(schema, methods),
             variables: operation_declaration.variables.map {|v| variable_definition(v)},
             dependencies: dependencies,
           )
@@ -172,7 +171,7 @@ module GraphQLClient
         add_class(
           LeafClass.new(
             name: module_name,
-            defined_methods: methods.values,
+            defined_methods: FieldAccessor.flatten(schema, methods),
             dependencies: dependencies,
             typename: if type_kind.abstract?
               nil
@@ -197,7 +196,7 @@ module GraphQLClient
         owner_type: T.untyped,
         parent_types: T::Array[T.untyped],
         selections: T::Array[T.untyped],
-        methods: T::Hash[Symbol, DefinedMethod],
+        methods: T::Hash[Symbol, T::Array[FieldAccessor]],
         next_dependencies: T::Array[String],
       ).void
     end
@@ -227,7 +226,11 @@ module GraphQLClient
         end
 
         input_name = node.alias || node.name
-        next_name = "#{module_name}::#{camelize(input_name)}"
+        next_name = if node.alias 
+          "#{module_name}::#{camelize(node.alias)}_#{camelize(node.name)}"
+        else
+          "#{module_name}::#{camelize(input_name)}"
+        end
         return_type = generate_output_type(
           field_definition.type,
           node.selections,
@@ -237,122 +240,36 @@ module GraphQLClient
         )
         
         method_name = generate_method_name(underscore(input_name))
-        methods[method_name] = DefinedMethod.new(
+        method_array = methods[method_name] ||= T.let([], T::Array[FieldAccessor])
+        method_array << FieldAccessor.new(
           name: method_name, 
           signature: return_type.signature,
-          body: return_type.deserializer,
+          expression: return_type.deserializer,
+          fragment_types: parent_types.map(&:graphql_name),
         )
       end
 
       # Second pass, handle fragment spreads
-      contingent_methods = T.let({}, T::Hash[String, T::Hash[Symbol, DefinedMethod]])
-      contingent_method_names = T.let(Set.new, T::Set[Symbol])
-
       selections.each do |node|
         next unless node.is_a?(GraphQL::Language::Nodes::InlineFragment)
         
         subselections = node.selections
         fragment_type = schema.types[node.type.name]
-        fragment_parent_types = [*parent_types, owner_type]
         fragment_methods = {}
+
         generate_methods_from_selections(
           module_name: module_name,
           owner_type: fragment_type,
-          parent_types: fragment_parent_types,
+          parent_types: [*parent_types, fragment_type],
           selections: subselections,
           methods: fragment_methods,
           next_dependencies: next_dependencies
         )
 
-        # Determine if this is actually a contingent type. If a fragment is being spread
-        # inside of an object type that will always be one of the fragment's possible types,
-        # then we can treat these are ordinary methods that can't be null.
-
-        root_type = fragment_parent_types.fetch(0)
-        root_possible_types = schema.possible_types(root_type)
-        leaf_possible_types = [*fragment_parent_types, fragment_type].reduce(root_possible_types) do |possible_types, next_type|
-          possible_types & schema.possible_types(next_type)
+        fragment_methods.each do |method_name, submethods|
+          method_array = methods[method_name] ||= T.let([], T::Array[FieldAccessor])
+          method_array.concat(submethods)
         end
-
-        if root_possible_types == leaf_possible_types
-          methods.merge!(fragment_methods)
-        else
-          schema.possible_types(fragment_type).each do |object_type|
-            hash = contingent_methods[object_type.graphql_name] ||= {}
-            hash.merge!(fragment_methods)
-            contingent_method_names.merge(fragment_methods.keys)
-          end
-        end
-      end
-
-      contingent_method_names.each do |method_name|
-        # If we are already selecting this field at the top level, skip it.
-        next if methods.key?(method_name)
-
-        # Construct a hash of graphql_type => DefinedMethod, so that we can build
-        # a composite method that represents all of them.
-        possible_methods = T.let({}, T::Hash[String, DefinedMethod])
-
-        contingent_methods.each do |type_name, fragment_methods|
-          defined_method = fragment_methods[method_name]
-          next if defined_method.nil?
-          possible_methods[type_name] = defined_method
-        end
-
-        signatures = possible_methods.each_value.map do |defined_method|
-          signature = defined_method.signature
-          next signature unless signature.start_with?("T.nilable(")
-          
-          # Strip "T.nilable(" off the front, and ")" off the end
-          T.must(signature[10...-1])
-        end
-
-        signatures.uniq!
-        signatures.sort!
-        composite_signature = if signatures.size == 1
-          "T.nilable(#{signatures.fetch(0)})"
-        else
-          "T.nilable(T.any(#{signatures.join(', ')}))"
-        end
-
-        # Hash where the first value is a boolean expression (ie, "typename == 'A' || typename == 'B'")
-        # and the second value is the conversion code for casting the field value appropriately
-        conditions = T.let([], T::Array[[String, String]])
-        
-        possible_methods.group_by {|_, defined_method| defined_method.body}.each do |body, group|
-          type_names = group.map {|type, _| type}.uniq.sort
-          conditions << [
-            type_names.map {|type| "__typename == #{type.inspect}"}.join(' || '),
-            body
-          ]
-        end
-
-        conditions.sort!
-        
-        if conditions.size == 1
-          composite_body = <<~STRING
-            return unless #{conditions.fetch(0)[0]}
-            #{conditions.fetch(0)[1]}
-          STRING
-        else
-          composite_body = +<<~STRING
-            if #{conditions.fetch(0)[0]}
-              #{indent(conditions.fetch(0)[1], 1).strip}
-          STRING
-
-          T.must(conditions[1..-1]).each do |(condition, body)|
-            composite_body << "elsif #{condition}\n"
-            composite_body << "#{indent(body, 1).rstrip}\n"
-          end
-
-          composite_body << "end"
-        end
-
-        methods[method_name] = DefinedMethod.new(
-          name: method_name,
-          signature: composite_signature,
-          body: composite_body
-        )
       end
     end
 
