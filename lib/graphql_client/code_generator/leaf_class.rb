@@ -10,19 +10,14 @@ module GraphQLClient
       include Utils
 
       const :name, String
+      const :schema, GRAPHQL_SCHEMA
       const :defined_methods, T::Array[DefinedMethod]
       const :dependencies, T::Array[String]
-      const :typename, T.nilable(String)
+      const :graphql_type, T.untyped
 
       sig {override.returns(String)}
       def to_ruby
         pretty_print = generate_pretty_print(defined_methods)
-
-        typename_impl = if typename
-          typename.inspect
-        else
-          "raw_result['__typename']"
-        end
 
         dynamic_methods = <<~STRING.strip
           #{defined_methods.map(&:to_ruby).join("\n")}
@@ -34,6 +29,8 @@ module GraphQLClient
             extend T::Sig
             include GraphQLClient::QueryResult
 
+            #{indent(possible_types_constant(schema, graphql_type), 1).strip}
+
             sig {params(result: GraphQLClient::OBJECT_TYPE).void}
             def initialize(result)
               @result = T.let(result, GraphQLClient::OBJECT_TYPE)
@@ -44,10 +41,7 @@ module GraphQLClient
               @result
             end
 
-            sig {override.returns(String)}
-            def __typename
-              #{typename_impl}
-            end
+            #{indent(typename_method(schema, graphql_type), 1).strip}
 
             #{indent(dynamic_methods, 1).strip}
           end

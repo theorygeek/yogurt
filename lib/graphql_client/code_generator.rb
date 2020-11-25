@@ -141,7 +141,7 @@ module GraphQLClient
       .returns(TypedOutput)
     end
     private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil, dependencies: [])
-      methods = T.let({}, T::Hash[Symbol, T::Array[FieldAccessor]])
+      methods = T.let({}, T::Hash[Symbol, T::Array[FieldAccessPath]])
       next_dependencies = [module_name, *dependencies]
       
       generate_methods_from_selections(
@@ -153,6 +153,14 @@ module GraphQLClient
         next_dependencies: next_dependencies
       )
 
+      defined_methods = methods.map do |name, paths|
+        FieldAccessMethod.new(
+          name: name,
+          field_access_paths: paths,
+          schema: schema,
+        )
+      end
+
       type_kind = owner_type.kind
       if operation_declaration
         add_class(
@@ -160,9 +168,9 @@ module GraphQLClient
             name: module_name,
             schema: schema,
             operation_name: operation_declaration.operation_name,
-            typename: owner_type.graphql_name,
+            graphql_type: owner_type,
             query_container: operation_declaration.declaration.container,
-            defined_methods: FieldAccessor.flatten(schema, methods),
+            defined_methods: defined_methods,
             variables: operation_declaration.variables.map {|v| variable_definition(v)},
             dependencies: dependencies,
           )
@@ -171,13 +179,10 @@ module GraphQLClient
         add_class(
           LeafClass.new(
             name: module_name,
-            defined_methods: FieldAccessor.flatten(schema, methods),
+            schema: schema,
+            defined_methods: defined_methods,
             dependencies: dependencies,
-            typename: if type_kind.abstract?
-              nil
-            else
-              owner_type.graphql_name
-            end
+            graphql_type: owner_type,
           )
         )
       end
@@ -196,7 +201,7 @@ module GraphQLClient
         owner_type: T.untyped,
         parent_types: T::Array[T.untyped],
         selections: T::Array[T.untyped],
-        methods: T::Hash[Symbol, T::Array[FieldAccessor]],
+        methods: T::Hash[Symbol, T::Array[FieldAccessPath]],
         next_dependencies: T::Array[String],
       ).void
     end
@@ -240,9 +245,10 @@ module GraphQLClient
         )
         
         method_name = generate_method_name(underscore(input_name))
-        method_array = methods[method_name] ||= T.let([], T::Array[FieldAccessor])
-        method_array << FieldAccessor.new(
-          name: method_name, 
+        method_array = methods[method_name] ||= T.let([], T::Array[FieldAccessPath])
+        method_array << FieldAccessPath.new(
+          name: method_name,
+          schema: schema,
           signature: return_type.signature,
           expression: return_type.deserializer,
           fragment_types: parent_types.map(&:graphql_name),
@@ -267,7 +273,7 @@ module GraphQLClient
         )
 
         fragment_methods.each do |method_name, submethods|
-          method_array = methods[method_name] ||= T.let([], T::Array[FieldAccessor])
+          method_array = methods[method_name] ||= T.let([], T::Array[FieldAccessPath])
           method_array.concat(submethods)
         end
       end

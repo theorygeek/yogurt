@@ -7,6 +7,56 @@ module GraphQLClient
       extend T::Sig
       extend self
 
+      sig {params(schema: GRAPHQL_SCHEMA, graphql_type: T.untyped).returns(String)}
+      def typename_method(schema, graphql_type)
+        possible_types = schema.possible_types(graphql_type)
+
+        if possible_types.size == 1
+          <<~STRING
+            sig {override.returns(String)}
+            def __typename
+              #{possible_types.fetch(0).graphql_name.inspect}
+            end
+          STRING
+        else
+          <<~STRING
+            sig {override.returns(String)}
+            def __typename
+              raw_result["__typename"]
+            end
+          STRING
+        end
+      end
+
+      sig {params(schema: GRAPHQL_SCHEMA, graphql_type: T.untyped).returns(String)}
+      def possible_types_constant(schema, graphql_type)
+        possible_types = schema
+          .possible_types(graphql_type)
+          .map(&:graphql_name)
+          .sort
+          .map(&:inspect)
+
+        single_line = possible_types.join(', ')
+        if single_line.size <= 80
+          <<~STRING.strip
+            POSSIBLE_TYPES = T.let(
+              [#{single_line}],
+              T::Array[String]
+            )
+          STRING
+        else
+          multi_line = possible_types.join(",\n")
+          <<~STRING.strip
+            POSSIBLE_TYPES = T.let(
+              [
+                #{indent(multi_line, 2).strip}
+              ].freeze,
+              T::Array[String]
+            )
+          STRING
+        end
+      end
+
       sig {params(camel_cased_word: String).returns(String)}
       def underscore(camel_cased_word)
         return camel_cased_word unless /[A-Z-]|::/.match?(camel_cased_word)

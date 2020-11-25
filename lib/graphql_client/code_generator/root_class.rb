@@ -12,7 +12,7 @@ module GraphQLClient
       const :name, String
       const :schema, GRAPHQL_SCHEMA
       const :operation_name, String
-      const :typename, String
+      const :graphql_type, T.untyped
       const :query_container, QueryContainer::CONTAINER
       const :defined_methods, T::Array[DefinedMethod]
       const :variables, T::Array[VariableDefinition]
@@ -42,6 +42,7 @@ module GraphQLClient
             QUERY_TEXT = T.let(<<~'GRAPHQL', String)
               #{indent(reprinted_query, 2).strip}
             GRAPHQL
+            #{indent(possible_types_constant(schema, graphql_type), 1).strip}
 
             #{indent(execute_method, 1).strip}
 
@@ -56,10 +57,7 @@ module GraphQLClient
               @result
             end
 
-            sig {override.returns(String)}
-            def __typename
-              #{typename.inspect}
-            end
+            #{indent(typename_method(schema, graphql_type), 1).strip}
 
             sig {override.returns(T.nilable(T::Array[GraphQLClient::OBJECT_TYPE]))}
             def errors

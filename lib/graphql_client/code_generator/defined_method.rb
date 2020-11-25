@@ -3,28 +3,16 @@
 
 module GraphQLClient
   class CodeGenerator
-    class DefinedMethod < T::Struct
+    module DefinedMethod
       extend T::Sig
-      include Utils
+      extend T::Helpers
+      abstract!
 
-      # Name of the method
-      const :name, Symbol
+      sig {abstract.returns(Symbol)}
+      def name; end
 
-      # Sorbet signature for the method
-      const :signature, String
-
-      # Body of the method
-      const :body, String
-
-      sig {returns(String)}
-      def to_ruby
-        <<~STRING
-          sig {returns(#{signature})}
-          def #{name}
-            #{indent(body, 1).strip}
-          end
-        STRING
-      end
+      sig {abstract.returns(String)}
+      def to_ruby; end
     end
   end
 end

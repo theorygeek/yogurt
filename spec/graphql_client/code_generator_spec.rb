@@ -25,7 +25,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(query_class.name).to eq "FakeContainer::SomeQuery"
     expect(query_class.operation_name).to eq "SomeQuery"
     expect(query_class.defined_methods.map(&:name)).to eq [:viewer]
-    expect(query_class.typename).to eq "Query"
+    expect(query_class.graphql_type.graphql_name).to eq "Query"
     expect(query_class.to_ruby).to include "def viewer"
     expect(query_class.to_ruby).to include "def pretty_print"
     expect(query_class.to_ruby).to include "def self.execute"
@@ -33,7 +33,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
     expect(viewer_class).to be_a GraphQLClient::CodeGenerator::LeafClass
     expect(viewer_class.name).to eq "FakeContainer::SomeQuery::Viewer"
-    expect(viewer_class.typename).to eq "User"
+    expect(viewer_class.graphql_type.graphql_name).to eq "User"
     expect(viewer_class.to_ruby).to include "def login"
     expect(viewer_class.to_ruby).to include "def created_at"
     expect(viewer_class.defined_methods.map(&:name)).to match_array([:login, :created_at])
@@ -97,7 +97,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(codes_of_conduct.signature).to eq "T.nilable(T::Array[T.nilable(FakeContainer::SomeQuery::CodesOfConduct)])"
 
     subclass = generator.classes["FakeContainer::SomeQuery::CodesOfConduct"]
-    expect(subclass.typename).to eq "CodeOfConduct"
+    expect(subclass.graphql_type.graphql_name).to eq "CodeOfConduct"
 
     url_method = subclass.defined_methods.detect {|dm| dm.name == :url}
     expect(url_method).to_not be_nil
@@ -187,11 +187,11 @@ RSpec.describe GraphQLClient::CodeGenerator do
     query = generator.classes["FakeContainer::AliasedQuery"]
     me_method = query.defined_methods.detect {|dm| dm.name == :me}
     expect(me_method).to_not be_nil
-    expect(me_method.signature).to eq "FakeContainer::AliasedQuery::Me"
+    expect(me_method.signature).to eq "FakeContainer::AliasedQuery::Me_Viewer"
 
-    me_class = generator.classes["FakeContainer::AliasedQuery::Me"]
+    me_class = generator.classes["FakeContainer::AliasedQuery::Me_Viewer"]
     expect(me_class.defined_methods.map(&:name)).to eq [:type]
-    expect(me_class.typename).to eq "User"
+    expect(me_class.graphql_type.graphql_name).to eq "User"
 
     type_check(generator.contents)
   end
@@ -211,7 +211,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
-      expect(node_class.typename).to be_nil
+      expect(node_class.graphql_type.graphql_name).to eq "Node"
       type_check(generator.contents)
     end
 
@@ -241,9 +241,28 @@ RSpec.describe GraphQLClient::CodeGenerator do
       state_method = node_class.defined_methods.detect {|dm| dm.name == :state}
       expect(state_method).to_not be_nil
       expect(state_method.signature).to start_with "T.nilable("
-      expect(state_method.body).to include '__typename == "Project"'
-      expect(state_method.body).to include '__typename == "ProjectCard"'
-      expect(state_method.body).to include '__typename == "PullRequest"'
+
+      expect(state_method.branches).to match_array([
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["Project"]),
+          expression: 'FakeSchema::ProjectState.deserialize(raw_result["state"])'
+        ),
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["ProjectCard"]),
+          expression: <<~STRING.strip
+            return if raw_result["state"].nil?
+            FakeSchema::ProjectCardState.deserialize(raw_result["state"])
+          STRING
+        ),
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["PullRequest"]),
+          expression: 'FakeSchema::PullRequestState.deserialize(raw_result["state"])'
+        )
+      ])
+      
+      expect(state_method.body).to include 'when "Project"'
+      expect(state_method.body).to include 'when "ProjectCard"'
+      expect(state_method.body).to include 'when "PullRequest"'
       type_check(generator.contents)
     end
 
@@ -267,8 +286,8 @@ RSpec.describe GraphQLClient::CodeGenerator do
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
       login_method = node_class.defined_methods.detect {|dm| dm.name == :login}
-      expect(login_method.body).to include 'return unless __typename == "User"'
-      expect(login_method.body).to_not include '__typename == "Bot"'
+      expect(login_method.body).to include 'return unless type == "User"'
+      expect(login_method.body).to_not include 'type == "Bot"'
       type_check(generator.contents)
     end
 
@@ -320,7 +339,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
       id_method = node_class.defined_methods.detect {|dm| dm.name == :id}
       expect(id_method.signature).to start_with "T.nilable"
-      expect(id_method.body).to include 'return unless __typename == "Bot" || __typename == "User"'
+      expect(id_method.body).to include 'return unless type == "Bot" || type == "User"'
       type_check(generator.contents)
     end
 
@@ -413,9 +432,76 @@ RSpec.describe GraphQLClient::CodeGenerator do
       field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
       expect(field_method).to_not be_nil
       expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field_Actor, FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
-      expect(field_method.body).to include '__typename == "CommitComment"'
-      expect(field_method.body).to include '__typename == "CommitCommentThread"'
-      expect(field_method.body).to include '__typename == "CrossReferencedEvent"'
+      
+      expect(field_method.branches).to match_array([
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["CommitComment"]),
+          expression: <<~STRING.strip
+            raw_result["field"].map do |raw_value|
+              FakeSchema::CommentCannotUpdateReason.deserialize(raw_value)
+            end
+          STRING
+        ),
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["CommitCommentThread"]),
+          expression: <<~STRING.strip
+            return if raw_result["field"].nil?
+            T.cast(raw_result["field"], Integer)
+          STRING
+        ),
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["CrossReferencedEvent"]),
+          expression: <<~STRING.strip
+            return if raw_result["field"].nil?
+            FakeContainer::NodeQuery::Node::Field_Actor.new(raw_result["field"])
+          STRING
+        ),
+        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+          typenames: Set.new(["AddedToProjectEvent"]),
+          expression: <<~STRING.strip
+            return if raw_result["field"].nil?
+            FakeContainer::NodeQuery::Node::Field_ProjectCard.new(raw_result["field"])
+          STRING
+        ),
+      ])
+
+      type_check(generator.contents)
+    end
+
+    it "handles the same field expanded inside of multiple fragments" do
+      query_text = <<~'GRAPHQL'
+        query NodeQuery($id: ID!) {
+          node(id: $id) {
+            __typename
+            ... on AddedToProjectEvent {
+              projectCard {
+                creator {
+                  __typename
+                  ... on Node {
+                    ... on Commit {
+                      id
+                    }
+                  }
+                }
+              }
+            }
+
+            # ... on AddedToProjectEvent {
+            #   projectCard {
+            #     createdAt
+            #     note
+            #   }
+            # }
+          }
+        }
+      GRAPHQL
+
+      FakeContainer.declare_query(query_text)
+      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator.generate(FakeContainer.declared_queries[0])
+
+      project_card_class = generator.classes["FakeContainer::NodeQuery::ProjectCard"]
+      puts generator.formatted_contents
       type_check(generator.contents)
     end
   end
