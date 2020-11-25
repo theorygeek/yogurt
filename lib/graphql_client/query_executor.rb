@@ -15,7 +15,7 @@ module GraphQLClient
         query: String,
         operation_name: String,
         variables: T.nilable(T::Hash[String, T.untyped]),
-        options: T.untyped
+        options: T.untyped,
       ).returns(T::Hash[String, T.untyped])
     end
     def execute(query, operation_name:, variables: nil, options: nil); end

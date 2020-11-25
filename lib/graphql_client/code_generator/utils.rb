@@ -73,7 +73,7 @@ module GraphQLClient
       def camelize(term)
         string = term.to_s
         string = string.sub(/^[a-z\d]*/, &:capitalize)
-        string.gsub!(%r{(?:_|(/))([a-z\d]*)}i) {"#{Regexp.last_match(1)}#{Regexp.last_match(2).capitalize}"}
+        string.gsub!(%r{(?:_|(/))([a-z\d]*)}i) {"#{Regexp.last_match(1)}#{T.must(Regexp.last_match(2)).capitalize}"}
         string.gsub!("/", "::")
         string
       end

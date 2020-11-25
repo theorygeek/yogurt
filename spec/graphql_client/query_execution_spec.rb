@@ -9,7 +9,7 @@ RSpec.describe "QueryResult.execute" do
     generator = GraphQLClient::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
     type_check(generator.contents)
-    eval(generator.contents)
+    eval(generator.contents) # rubocop:disable Security/Eval
   end
 
   it "can execute queries" do
@@ -32,21 +32,21 @@ RSpec.describe "QueryResult.execute" do
         query_text,
         operation_name: 'SomeQuery',
         options: nil,
-        variables: nil
+        variables: nil,
       )
       .and_return({
         'data' => {
           'viewer' => {
             'login' => 'theorygeek',
-            'createdAt' => Time.now.iso8601,
+            'createdAt' => Time.now.iso8601
           },
 
           'codesOfConduct' => [
-            {'id' => SecureRandom.hex, 'body' => 'Hello World'},
+            { 'id' => SecureRandom.hex, 'body' => 'Hello World' }
           ]
         }
       })
-    
+
     declare_query(query_text)
     result = FakeContainer::SomeQuery.execute
     expect(result.viewer.login).to eq 'theorygeek'
@@ -68,7 +68,7 @@ RSpec.describe "QueryResult.execute" do
         }
       }
     GRAPHQL
-    
+
     completed_at = Time.new(2020, 11, 30, 12, 0, 0).utc
     expect(FakeExecutor::Instance)
       .to receive(:execute)
@@ -85,7 +85,7 @@ RSpec.describe "QueryResult.execute" do
               {
                 'description' => 'some_description',
                 'identifier' => 'some_identifier',
-                'label' => 'some_label',
+                'label' => 'some_label'
               }
             ],
             'clientMutationId' => nil,
@@ -95,22 +95,22 @@ RSpec.describe "QueryResult.execute" do
             'externalId' => nil,
             'output' => nil,
             'startedAt' => nil,
-            'status' => nil,            
+            'status' => nil
           },
           'issueId' => 'some_issue_id',
-          'clientMutationId' => 'some_client_mutation_id',
-        }
+          'clientMutationId' => 'some_client_mutation_id'
+        },
       )
       .and_return({
         'data' => {
           'createCheckRun' => {
             'checkRun' => {
-              'completedAt' => completed_at.iso8601,
+              'completedAt' => completed_at.iso8601
             }
           },
           'pinIssue' => {
-            'clientMutationId' => 'some_client_mutation_id',
-          },
+            'clientMutationId' => 'some_client_mutation_id'
+          }
         }
       })
 
@@ -128,8 +128,8 @@ RSpec.describe "QueryResult.execute" do
             identifier: 'some_identifier',
             label: 'some_label',
           )
-        ]
-      )
+        ],
+      ),
     )
 
     expect(result.create_check_run.check_run.completed_at).to eq(completed_at)
@@ -145,7 +145,7 @@ RSpec.describe "QueryResult.execute" do
         }
       }
     GRAPHQL
-    
+
     input_time = Time.new(2020, 11, 30, 12, 0, 0).utc
     expect(FakeExecutor::Instance)
       .to receive(:execute)
@@ -160,24 +160,24 @@ RSpec.describe "QueryResult.execute" do
             'emoji' => nil,
             'limitedAvailability' => nil,
             'message' => nil,
-            'organizationId' => nil,
-          },
-        }
+            'organizationId' => nil
+          }
+        },
       )
       .and_return({
         'data' => {
           'changeUserStatus' => {
-            'clientMutationId' => 'some_client_mutation_id',
-          },
+            'clientMutationId' => 'some_client_mutation_id'
+          }
         }
       })
-    
+
     declare_query(query_text)
     result = FakeContainer::UserStatusMutation.execute(
       input: FakeSchema::ChangeUserStatusInput.new(
         client_mutation_id: 'some_client_mutation_id',
         expires_at: input_time,
-      )
+      ),
     )
 
     expect(result.change_user_status.client_mutation_id).to eq 'some_client_mutation_id'

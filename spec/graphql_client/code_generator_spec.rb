@@ -36,7 +36,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(viewer_class.graphql_type.graphql_name).to eq "User"
     expect(viewer_class.to_ruby).to include "def login"
     expect(viewer_class.to_ruby).to include "def created_at"
-    expect(viewer_class.defined_methods.map(&:name)).to match_array([:login, :created_at])
+    expect(viewer_class.defined_methods.map(&:name)).to match_array(%i[login created_at])
 
     login_method = viewer_class.defined_methods.detect {|dm| dm.name == :login}
     expect(login_method.signature).to eq "String"
@@ -64,10 +64,10 @@ RSpec.describe GraphQLClient::CodeGenerator do
     FakeContainer.declare_query(query_text)
     generator = GraphQLClient::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
-    
+
     viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
     created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
-    
+
     expect(created_at_method.signature).to eq "Time"
     expect(created_at_method.body).to eq 'GraphQLClient::Converters::Time.deserialize(raw_result["createdAt"])'
     type_check(generator.contents)
@@ -157,7 +157,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       startedAt
       status
     ])
-    
+
     action_argument = check_run_input.arguments.detect {|dm| dm.name == :actions}
     expect(action_argument.serializer).to eq <<~STRING.strip
       if actions
@@ -245,21 +245,21 @@ RSpec.describe GraphQLClient::CodeGenerator do
       expect(state_method.branches).to match_array([
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["Project"]),
-          expression: 'FakeSchema::ProjectState.deserialize(raw_result["state"])'
+          expression: 'FakeSchema::ProjectState.deserialize(raw_result["state"])',
         ),
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["ProjectCard"]),
-          expression: <<~STRING.strip
+          expression: <<~STRING.strip,
             return if raw_result["state"].nil?
             FakeSchema::ProjectCardState.deserialize(raw_result["state"])
           STRING
         ),
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["PullRequest"]),
-          expression: 'FakeSchema::PullRequestState.deserialize(raw_result["state"])'
+          expression: 'FakeSchema::PullRequestState.deserialize(raw_result["state"])',
         )
       ])
-      
+
       expect(state_method.body).to include 'when "Project"'
       expect(state_method.body).to include 'when "ProjectCard"'
       expect(state_method.body).to include 'when "PullRequest"'
@@ -390,7 +390,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       FakeContainer.declare_query(query_text)
       generator = GraphQLClient::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
-      
+
       viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
       id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
       expect(id_method.signature).to_not include "T.nilable"
@@ -432,11 +432,11 @@ RSpec.describe GraphQLClient::CodeGenerator do
       field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
       expect(field_method).to_not be_nil
       expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field_Actor, FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
-      
+
       expect(field_method.branches).to match_array([
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CommitComment"]),
-          expression: <<~STRING.strip
+          expression: <<~STRING.strip,
             raw_result["field"].map do |raw_value|
               FakeSchema::CommentCannotUpdateReason.deserialize(raw_value)
             end
@@ -444,25 +444,25 @@ RSpec.describe GraphQLClient::CodeGenerator do
         ),
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CommitCommentThread"]),
-          expression: <<~STRING.strip
+          expression: <<~STRING.strip,
             return if raw_result["field"].nil?
             T.cast(raw_result["field"], Integer)
           STRING
         ),
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CrossReferencedEvent"]),
-          expression: <<~STRING.strip
+          expression: <<~STRING.strip,
             return if raw_result["field"].nil?
             FakeContainer::NodeQuery::Node::Field_Actor.new(raw_result["field"])
           STRING
         ),
         GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["AddedToProjectEvent"]),
-          expression: <<~STRING.strip
+          expression: <<~STRING.strip,
             return if raw_result["field"].nil?
             FakeContainer::NodeQuery::Node::Field_ProjectCard.new(raw_result["field"])
           STRING
-        ),
+        )
       ])
 
       type_check(generator.contents)

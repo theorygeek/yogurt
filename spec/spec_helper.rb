@@ -19,7 +19,7 @@ RSpec.configure do |config|
   end
 
   config.include(TypeCheck)
-  config.before(:each) do |each|
+  config.before(:each) do |_each|
     fake_schema = File.read(File.expand_path("./github_schema.graphql", __dir__))
     stub_const("FakeSchema", GraphQL::Schema.from_definition(fake_schema))
 
@@ -31,7 +31,7 @@ RSpec.configure do |config|
     GraphQLClient.add_schema(FakeSchema, FakeExecutor::Instance)
   end
 
-  config.after(:each) do |each|
+  config.after(:each) do |_each|
     GraphQLClient.instance_variables.each do |variable|
       GraphQLClient.remove_instance_variable(variable)
     end

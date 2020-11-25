@@ -11,7 +11,7 @@ RSpec.describe GraphQLClient::QueryContainer do
         }
       }
     GRAPHQL
-    
+
     FakeContainer.declare_query(query_text)
 
     declaration = FakeContainer.declared_queries[0]
@@ -29,7 +29,7 @@ RSpec.describe GraphQLClient::QueryContainer do
         }
       }
     GRAPHQL
-    
+
     expect {FakeContainer.declare_query(query_text)}
       .to raise_error(GraphQLClient::ValidationError, /foobarFakeField/)
   end

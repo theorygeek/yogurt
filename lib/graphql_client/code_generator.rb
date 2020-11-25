@@ -73,7 +73,7 @@ module GraphQLClient
 
         ensure_constant_name(name)
         module_name = "#{declaration.container.name}::#{name}"
-        root_type = generate_result_class(
+        generate_result_class(
           module_name,
           owner_type,
           op_def.selections,
@@ -163,7 +163,6 @@ module GraphQLClient
         )
       end
 
-      type_kind = owner_type.kind
       if operation_declaration
         add_class(
           RootClass.new(
@@ -223,10 +222,8 @@ module GraphQLClient
 
         if field_definition.nil?
           field_definition = if owner_type == schema.query && (entry_point_field = schema.introspection_system.entry_point(name: field_name))
-            is_introspection = true
             entry_point_field
           elsif (dynamic_field = schema.introspection_system.dynamic_field(name: field_name))
-            is_introspection = true
             dynamic_field
           else
             raise "Invariant: no field for #{owner_type}.#{field_name}"
@@ -259,7 +256,7 @@ module GraphQLClient
       end
 
       # Second pass, handle fragment spreads
-      selections.each do |node|
+      selections.each do |node| # rubocop:disable Style/CombinableLoops
         next unless node.is_a?(GraphQL::Language::Nodes::InlineFragment)
 
         subselections = node.selections

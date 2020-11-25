@@ -68,9 +68,9 @@ module GraphQLClient
       validator = GraphQL::StaticValidation::Validator.new(schema: schema, rules: VALIDATION_RULES)
       query = GraphQL::Query.new(schema, query_text)
       validation_result = validator.validate(query)
-      validation_result[:errors].each do |error|
-        Kernel.raise(ValidationError, error.message)
-      end
+
+      error = validation_result[:errors][0]
+      Kernel.raise(ValidationError, error.message) if error
 
       if query.operations.key?(nil)
         Kernel.raise(ValidationError, "You must provide a name for each of the operations in your GraphQL query.")

@@ -12,7 +12,7 @@ module GraphQLClient
       const :name, String
       const :schema, GRAPHQL_SCHEMA
       const :operation_name, String
-      const :graphql_type, T.untyped
+      const :graphql_type, T.untyped # rubocop:disable Sorbet/ForbidUntypedStructProps
       const :query_container, QueryContainer::CONTAINER
       const :defined_methods, T::Array[DefinedMethod]
       const :variables, T::Array[VariableDefinition]

@@ -13,7 +13,7 @@ module GraphQLClient
       const :schema, GRAPHQL_SCHEMA
       const :defined_methods, T::Array[DefinedMethod]
       const :dependencies, T::Array[String]
-      const :graphql_type, T.untyped
+      const :graphql_type, T.untyped # rubocop:disable Sorbet/ForbidUntypedStructProps
 
       sig {override.returns(String)}
       def to_ruby

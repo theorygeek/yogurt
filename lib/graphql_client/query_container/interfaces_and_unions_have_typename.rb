@@ -92,13 +92,14 @@ module GraphQLClient
           T.absurd(node)
         end
 
-        send(:add_error, Error.new(
+        error = Error.new(
           format(msg, node_name: node_name),
           nodes: node,
           node_name: node_name,
           type: type_definition.graphql_name,
-                         ))
+        )
 
+        send(:add_error, error)
         false
       end
     end

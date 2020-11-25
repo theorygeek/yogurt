@@ -13,6 +13,8 @@ Layout/CaseIndentation:
   EnforcedStyle: end
 Layout/EndAlignment:
   EnforcedStyleAlignWith: start_of_line
+Layout/FirstArrayElementIndentation:
+  EnforcedStyle: consistent
 Layout/FirstHashElementIndentation:
   EnforcedStyle: consistent
 Layout/LineLength:
@@ -106,4 +108,6 @@ Style/StringLiterals:
 Style/TrailingCommaInArguments:
   EnforcedStyleForMultiline: comma
 Style/TrivialAccessors:
+  Enabled: false
+Style/FormatStringToken:
   Enabled: false

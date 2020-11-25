@@ -20,7 +20,7 @@ RSpec.describe GraphQLClient::CodeGenerator::Utils do
             text
           inside of it
       STRING
-      
+
       indent1 = <<-STRING
           this is
             a string
