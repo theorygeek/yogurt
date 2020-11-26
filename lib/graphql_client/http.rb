@@ -8,9 +8,6 @@ require 'json'
 module GraphQLClient
   class Http
     extend T::Sig
-    extend T::Generic
-    OptionsType = type_member
-
     include QueryExecutor
 
     sig {params(uri: String, headers: T::Hash[String, String]).void}
@@ -26,14 +23,14 @@ module GraphQLClient
     end
 
     # You can override this method in a subclass to set options on the HTTP request
-    sig {overridable.params(options: T.nilable(OptionsType)).returns(T::Hash[String, String])}
+    sig {overridable.params(options: T.untyped).returns(T::Hash[String, String])}
     def headers(options)
       @headers
     end
 
     sig {override.returns(T::Types::Base)}
     def options_type_alias
-      T.type_alias {T.nilable(OptionsType)}
+      T.type_alias {T.untyped}
     end
 
     sig do
@@ -41,7 +38,7 @@ module GraphQLClient
         query: String,
         operation_name: String,
         variables: T.nilable(T::Hash[String, T.untyped]),
-        options: T.nilable(OptionsType),
+        options: T.untyped,
       ).returns(T::Hash[String, T.untyped])
     end
     def execute(query, operation_name:, variables: nil, options: nil)
