@@ -3,12 +3,11 @@
 
 lib = File.expand_path('lib', __dir__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'graphql'
-require 'graphql_client'
+require 'yogurt/version'
 
 Gem::Specification.new do |spec|
   spec.name = "yogurt"
-  spec.version = GraphQLClient::VERSION
+  spec.version = Yogurt::VERSION
   spec.authors = ["Ryan Foster"]
   spec.email = ["theorygeek@gmail.com"]
 

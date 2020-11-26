@@ -10,5 +10,5 @@ end
 
 class FakeSchema < GraphQL::Schema; end
 class FakeContainer
-  extend GraphQLClient::QueryContainer
+  extend Yogurt::QueryContainer
 end

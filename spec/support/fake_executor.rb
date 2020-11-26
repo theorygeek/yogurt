@@ -3,7 +3,7 @@
 
 class FakeExecutor
   extend T::Sig
-  include GraphQLClient::QueryExecutor
+  include Yogurt::QueryExecutor
 
   OPTIONS_TYPE = T.type_alias {T.nilable(T::Hash[String, String])}
 

@@ -24,16 +24,16 @@ RSpec.configure do |config|
     stub_const("FakeSchema", GraphQL::Schema.from_definition(fake_schema))
 
     fake_container = Module.new do
-      extend GraphQLClient::QueryContainer
+      extend Yogurt::QueryContainer
     end
 
     stub_const("FakeContainer", fake_container)
-    GraphQLClient.add_schema(FakeSchema, FakeExecutor::Instance)
+    Yogurt.add_schema(FakeSchema, FakeExecutor::Instance)
   end
 
   config.after(:each) do |_each|
-    GraphQLClient.instance_variables.each do |variable|
-      GraphQLClient.remove_instance_variable(variable)
+    Yogurt.instance_variables.each do |variable|
+      Yogurt.remove_instance_variable(variable)
     end
   end
 end

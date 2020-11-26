@@ -1,7 +1,7 @@
 # typed: ignore
 # frozen_string_literal: true
 
-RSpec.describe GraphQLClient::CodeGenerator do
+RSpec.describe Yogurt::CodeGenerator do
   it "generates code for basic queries" do
     query_text = <<~'GRAPHQL'
       query SomeQuery {
@@ -13,7 +13,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
     classes = generator.classes
@@ -21,7 +21,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(classes).to include 'FakeContainer::SomeQuery::Viewer'
 
     query_class = generator.classes["FakeContainer::SomeQuery"]
-    expect(query_class).to be_a GraphQLClient::CodeGenerator::RootClass
+    expect(query_class).to be_a Yogurt::CodeGenerator::RootClass
     expect(query_class.name).to eq "FakeContainer::SomeQuery"
     expect(query_class.operation_name).to eq "SomeQuery"
     expect(query_class.defined_methods.map(&:name)).to eq [:viewer]
@@ -31,7 +31,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     expect(query_class.to_ruby).to include "def self.execute"
 
     viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
-    expect(viewer_class).to be_a GraphQLClient::CodeGenerator::LeafClass
+    expect(viewer_class).to be_a Yogurt::CodeGenerator::LeafClass
     expect(viewer_class.name).to eq "FakeContainer::SomeQuery::Viewer"
     expect(viewer_class.graphql_type.graphql_name).to eq "User"
     expect(viewer_class.to_ruby).to include "def login"
@@ -51,7 +51,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
   end
 
   it "handles scalar converters" do
-    GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+    Yogurt.register_scalar(FakeSchema, "DateTime", Yogurt::Converters::Time)
 
     query_text = <<~'GRAPHQL'
       query SomeQuery {
@@ -62,14 +62,14 @@ RSpec.describe GraphQLClient::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
     viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
     created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
 
     expect(created_at_method.signature).to eq "Time"
-    expect(created_at_method.body).to eq 'GraphQLClient::Converters::Time.deserialize(raw_result["createdAt"])'
+    expect(created_at_method.body).to eq 'Yogurt::Converters::Time.deserialize(raw_result["createdAt"])'
     type_check(generator.contents)
   end
 
@@ -88,7 +88,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
     query_class = generator.classes["FakeContainer::SomeQuery"]
@@ -122,12 +122,12 @@ RSpec.describe GraphQLClient::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
     check_run_input = generator.classes['FakeSchema::CreateCheckRunInput']
     expect(check_run_input).to_not be_nil
-    expect(check_run_input).to be_a GraphQLClient::CodeGenerator::InputClass
+    expect(check_run_input).to be_a Yogurt::CodeGenerator::InputClass
     expect(check_run_input.arguments.map(&:name)).to match_array(%i[
       actions
       client_mutation_id
@@ -181,7 +181,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
     query = generator.classes["FakeContainer::AliasedQuery"]
@@ -198,7 +198,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
 
   describe '#content_files' do
     it "generates the right output files" do
-      GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+      Yogurt.register_scalar(FakeSchema, "DateTime", Yogurt::Converters::Time)
 
       FakeContainer.declare_query(<<~'GRAPHQL')
         query SomeQuery {
@@ -230,7 +230,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
         }
       GRAPHQL
 
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       FakeContainer.declared_queries.each {|declaration| generator.generate(declaration)}
       expect(generator.content_files.map(&:constant_name)).to eq([
         "FakeContainer::AliasedQuery",
@@ -265,7 +265,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
@@ -292,7 +292,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
@@ -301,18 +301,18 @@ RSpec.describe GraphQLClient::CodeGenerator do
       expect(state_method.signature).to start_with "T.nilable("
 
       expect(state_method.branches).to match_array([
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["Project"]),
           expression: 'FakeSchema::ProjectState.deserialize(raw_result["state"])',
         ),
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["ProjectCard"]),
           expression: <<~STRING.strip,
             return if raw_result["state"].nil?
             FakeSchema::ProjectCardState.deserialize(raw_result["state"])
           STRING
         ),
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["PullRequest"]),
           expression: 'FakeSchema::PullRequestState.deserialize(raw_result["state"])',
         )
@@ -339,7 +339,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
@@ -363,7 +363,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       viewer_class = generator.classes["FakeContainer::ViewerQuery::Viewer"]
@@ -391,7 +391,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
@@ -424,7 +424,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
@@ -446,7 +446,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
@@ -483,7 +483,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["FakeContainer::NodeQuery::Node"]
@@ -492,7 +492,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field_Actor, FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
 
       expect(field_method.branches).to match_array([
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CommitComment"]),
           expression: <<~STRING.strip,
             raw_result["field"].map do |raw_value|
@@ -500,21 +500,21 @@ RSpec.describe GraphQLClient::CodeGenerator do
             end
           STRING
         ),
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CommitCommentThread"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
             T.cast(raw_result["field"], Integer)
           STRING
         ),
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CrossReferencedEvent"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
             FakeContainer::NodeQuery::Node::Field_Actor.new(raw_result["field"])
           STRING
         ),
-        GraphQLClient::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
+        Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["AddedToProjectEvent"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
@@ -559,7 +559,7 @@ RSpec.describe GraphQLClient::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
       project_card_class = generator.classes["FakeContainer::NodeQuery::Node::ProjectCard"]
@@ -579,8 +579,8 @@ RSpec.describe GraphQLClient::CodeGenerator do
       # The presence of the extra fragment should remove the impossible access for the `url` field
       expect(url_method.field_access_is_impossible?).to eq false
       expect(url_method.field_access_is_guaranteed?).to eq true
-      expect(url_method.body).to eq "T.cast(raw_result[\"url\"], #{GraphQLClient::SCALAR_TYPE.name})"
-      expect(url_method.signature).to eq GraphQLClient::SCALAR_TYPE.name
+      expect(url_method.body).to eq "T.cast(raw_result[\"url\"], #{Yogurt::SCALAR_TYPE.name})"
+      expect(url_method.signature).to eq Yogurt::SCALAR_TYPE.name
       type_check(generator.contents)
     end
   end
