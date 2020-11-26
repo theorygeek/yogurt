@@ -3,7 +3,7 @@
 
 require "bundler/setup"
 Bundler.require(:default, :development)
-require "graphql_client"
+require 'yogurt'
 require_relative 'support/type_check'
 require_relative 'support/fake_executor'
 
