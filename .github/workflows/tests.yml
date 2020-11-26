@@ -1,0 +1,117 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  cache_dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.6
+
+      - uses: actions/cache@v1
+        id: bundle-cache
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+
+      - name: bundle install
+        run: |
+          gem install bundler
+          bundle config path vendor/bundle
+          bundle config set frozen 'true'
+          bundle install --jobs 4 --retry 3
+
+  rubocop:
+    runs-on: ubuntu-latest
+    needs: cache_dependencies
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Ruby 2.6
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: 2.6
+
+      - uses: actions/cache@v1
+        id: bundle-cache
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+      - name: bundle install
+        run: |
+          gem install bundler
+          bundle config path vendor/bundle
+          bundle
+      - name: rubocop
+        run: |
+          bundle exec rubocop
+
+  sorbet:
+    runs-on: ubuntu-latest
+    needs: cache_dependencies
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Ruby 2.6
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: 2.6
+
+      - uses: actions/cache@v1
+        id: bundle-cache
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+      - name: bundle install
+        run: |
+          gem install bundler
+          bundle config path vendor/bundle
+          bundle
+      - name: sorbet
+        run: |
+          bundle exec srb tc
+
+  rspec:
+    runs-on: ubuntu-latest
+    needs: cache_dependencies
+    env:
+      TEST_TIMEOUT: 5
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Ruby 2.6
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: 2.6
+
+      - uses: actions/cache@v1
+        id: bundle-cache
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+
+      - name: bundle install
+        run: |
+          gem install bundler
+          bundle config path vendor/bundle
+          bundle
+
+      - name: rspec
+        run: |
+          bundle exec rspec
