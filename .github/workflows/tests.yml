@@ -53,6 +53,7 @@ jobs:
         run: |
           gem install bundler
           bundle config path vendor/bundle
+          bundle
       - name: rubocop
         run: |
           bundle exec rubocop
@@ -79,6 +80,7 @@ jobs:
         run: |
           gem install bundler
           bundle config path vendor/bundle
+          bundle
       - name: sorbet
         run: |
           bundle exec srb tc
@@ -108,6 +110,7 @@ jobs:
         run: |
           gem install bundler
           bundle config path vendor/bundle
+          bundle
 
       - name: rspec
         run: |
