@@ -3,6 +3,7 @@
 
 module GraphQLClient
   module ErrorResult
+    include Kernel
     extend T::Sig
     extend T::Helpers
 

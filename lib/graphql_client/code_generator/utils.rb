@@ -110,16 +110,12 @@ module GraphQLClient
       def generate_pretty_print(methods)
         inspect_lines = methods.map do |dm|
           <<~STRING
+            p.comma_breakable
             p.text(#{dm.name.to_s.inspect})
             p.text(': ')
             p.pp(#{dm.name})
           STRING
         end
-
-        inspect_lines = inspect_lines.join(<<~STRING)
-          p.comma_breakable
-  
-        STRING
 
         object_group = <<~STRING.strip
           p.breakable
@@ -127,7 +123,7 @@ module GraphQLClient
           p.text(': ')
           p.pp(__typename)
 
-          #{inspect_lines}
+          #{inspect_lines.join("\n\n")}
         STRING
 
         <<~STRING

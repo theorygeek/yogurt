@@ -28,6 +28,7 @@ module GraphQLClient
       @headers
     end
 
+    # You can override this in a subclass to get strongly typed options on auto-generated code
     sig {override.returns(T::Types::Base)}
     def options_type_alias
       T.type_alias {T.untyped}

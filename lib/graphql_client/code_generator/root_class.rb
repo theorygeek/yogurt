@@ -75,7 +75,7 @@ module GraphQLClient
         options_type = executor.options_type_alias.name
         signature_params = ["options: #{options_type}"]
 
-        params = if options_type.start_with?("T.nilable")
+        params = if options_type.start_with?("T.nilable", "T.untyped")
           ["options=nil"]
         else
           ["options"]
@@ -110,7 +110,7 @@ module GraphQLClient
           sig do
             params(
               #{indent(signature_params.join(",\n"), 2).strip}
-            ).returns(T.any(T.attached_class, GraphQLClient::ErrorResult))
+            ).returns(T.any(T.attached_class, GraphQLClient::ErrorResult::OnlyErrors))
           end
           def self.execute(#{params.join(', ')})
             raw_result = GraphQLClient.execute(

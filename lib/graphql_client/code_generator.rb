@@ -98,7 +98,7 @@ module GraphQLClient
         end
 
         ensure_constant_name(name)
-        module_name = "#{declaration.container.name}::#{name}"
+        module_name = "::#{declaration.container.name}::#{name}"
         generate_result_class(
           module_name,
           owner_type,
@@ -137,7 +137,7 @@ module GraphQLClient
       return enum_class_name if enum_class_name
 
       # TODO: sanitize the name
-      klass_name = "#{schema.name}::#{enum_type.graphql_name}"
+      klass_name = "::#{schema.name}::#{enum_type.graphql_name}"
       add_class(EnumClass.new(name: klass_name, serialized_values: enum_type.values.keys))
       @enums[enum_type.graphql_name] = klass_name
     end
@@ -147,7 +147,7 @@ module GraphQLClient
       input_class_name = @input_types[graphql_name]
       return input_class_name if input_class_name
 
-      klass_name = "#{schema.name}::#{graphql_name}"
+      klass_name = "::#{schema.name}::#{graphql_name}"
       graphql_type = schema.types[graphql_name]
 
       arguments = graphql_type.arguments.each_value.map do |argument|
