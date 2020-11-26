@@ -3,10 +3,10 @@
 
 RSpec.describe "QueryResult.execute" do
   def declare_query(query_text)
-    GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+    Yogurt.register_scalar(FakeSchema, "DateTime", Yogurt::Converters::Time)
 
     FakeContainer.declare_query(query_text)
-    generator = GraphQLClient::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
     type_check(generator.contents)
     eval(generator.contents) # rubocop:disable Security/Eval
@@ -55,7 +55,7 @@ RSpec.describe "QueryResult.execute" do
   end
 
   it "can execute queries with variables" do
-    GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+    Yogurt.register_scalar(FakeSchema, "DateTime", Yogurt::Converters::Time)
     query_text = <<~'GRAPHQL'
       mutation SampleMutation($checkRun: CreateCheckRunInput!, $issueId: ID!, $clientMutationId: String) {
         createCheckRun(input: $checkRun) {
@@ -137,7 +137,7 @@ RSpec.describe "QueryResult.execute" do
   end
 
   it "can execute queries using scalar converters" do
-    GraphQLClient.register_scalar(FakeSchema, "DateTime", GraphQLClient::Converters::Time)
+    Yogurt.register_scalar(FakeSchema, "DateTime", Yogurt::Converters::Time)
     query_text = <<~'GRAPHQL'
       mutation UserStatusMutation($input: ChangeUserStatusInput!) {
         changeUserStatus(input: $input) {

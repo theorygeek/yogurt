@@ -1,8 +1,8 @@
 # typed: ignore
 # frozen_string_literal: true
 
-RSpec.describe GraphQLClient::CodeGenerator::Utils do
-  let(:utils) {GraphQLClient::CodeGenerator::Utils}
+RSpec.describe Yogurt::CodeGenerator::Utils do
+  let(:utils) {Yogurt::CodeGenerator::Utils}
 
   describe 'underscore' do
     it "converts camel case words to underscore" do

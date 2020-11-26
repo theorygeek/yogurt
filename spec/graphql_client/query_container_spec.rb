@@ -1,7 +1,7 @@
 # typed: ignore
 # frozen_string_literal: true
 
-RSpec.describe GraphQLClient::QueryContainer do
+RSpec.describe Yogurt::QueryContainer do
   it "can declare queries" do
     query_text = <<~'GRAPHQL'
       query Foobar {
@@ -31,7 +31,7 @@ RSpec.describe GraphQLClient::QueryContainer do
     GRAPHQL
 
     expect {FakeContainer.declare_query(query_text)}
-      .to raise_error(GraphQLClient::ValidationError, /foobarFakeField/)
+      .to raise_error(Yogurt::ValidationError, /foobarFakeField/)
   end
 
   it "raises an error if the query doesn't provide names for the operations" do
@@ -44,7 +44,7 @@ RSpec.describe GraphQLClient::QueryContainer do
     GRAPHQL
 
     expect {FakeContainer.declare_query(query_text)}
-      .to raise_error(GraphQLClient::ValidationError, /name for each of the operations/)
+      .to raise_error(Yogurt::ValidationError, /name for each of the operations/)
   end
 
   describe 'InterfacesAndUnionsHaveTypename' do
@@ -58,7 +58,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       GRAPHQL
 
       expect {FakeContainer.declare_query(query_text)}
-        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+        .to raise_error(Yogurt::ValidationError, /__typename/)
     end
 
     it "raises an error if the __typename field is aliased" do
@@ -72,7 +72,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       GRAPHQL
 
       expect {FakeContainer.declare_query(query_text)}
-        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+        .to raise_error(Yogurt::ValidationError, /__typename/)
     end
 
     it "doesn't raise an error if the interface includes __typename" do
@@ -101,7 +101,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       GRAPHQL
 
       expect {FakeContainer.declare_query(query_text)}
-        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+        .to raise_error(Yogurt::ValidationError, /__typename/)
     end
 
     it "raises an error even if there is a named fragment spread that includes __typename" do
@@ -119,7 +119,7 @@ RSpec.describe GraphQLClient::QueryContainer do
       GRAPHQL
 
       expect {FakeContainer.declare_query(query_text)}
-        .to raise_error(GraphQLClient::ValidationError, /__typename/)
+        .to raise_error(Yogurt::ValidationError, /__typename/)
     end
   end
 end

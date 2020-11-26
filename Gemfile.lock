@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    graphql-sorbet-client (0.1.1)
+    yogurt (0.1.1)
       graphql
       sorbet-runtime
       zeitwerk
@@ -16,7 +16,7 @@ GEM
     diff-lcs (1.4.4)
     graphql (1.11.6)
     method_source (1.0.0)
-    parallel (1.19.2)
+    parallel (1.20.1)
     parser (2.7.2.0)
       ast (~> 2.4.1)
     pry (0.13.1)
@@ -27,7 +27,7 @@ GEM
       pry (~> 0.13.0)
     rainbow (3.0.0)
     rake (10.5.0)
-    regexp_parser (1.8.2)
+    regexp_parser (2.0.0)
     rexml (3.2.4)
     rspec (3.10.0)
       rspec-core (~> 3.10.0)
@@ -51,15 +51,15 @@ GEM
       rubocop-ast (>= 0.6.0)
       ruby-progressbar (~> 1.7)
       unicode-display_width (>= 1.4.0, < 2.0)
-    rubocop-ast (1.1.0)
+    rubocop-ast (1.2.0)
       parser (>= 2.7.1.5)
     rubocop-sorbet (0.5.1)
       rubocop
     ruby-progressbar (1.10.1)
-    sorbet (0.5.6025)
-      sorbet-static (= 0.5.6025)
-    sorbet-runtime (0.5.6025)
-    sorbet-static (0.5.6025-universal-darwin-14)
+    sorbet (0.5.6111)
+      sorbet-static (= 0.5.6111)
+    sorbet-runtime (0.5.6111)
+    sorbet-static (0.5.6111-universal-darwin-14)
     unicode-display_width (1.7.0)
     zeitwerk (2.4.1)
 
@@ -69,7 +69,6 @@ PLATFORMS
 DEPENDENCIES
   benchmark-ips
   bundler (~> 1.17)
-  graphql-sorbet-client!
   pry
   pry-byebug
   rake (~> 10.0)
@@ -77,6 +76,7 @@ DEPENDENCIES
   rubocop (~> 0.92)
   rubocop-sorbet (~> 0.5)
   sorbet (~> 0.5)
+  yogurt!
 
 BUNDLED WITH
    1.17.3
