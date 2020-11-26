@@ -17,12 +17,12 @@ RSpec.describe Yogurt::CodeGenerator do
     generator.generate(FakeContainer.declared_queries[0])
 
     classes = generator.classes
-    expect(classes).to include 'FakeContainer::SomeQuery'
-    expect(classes).to include 'FakeContainer::SomeQuery::Viewer'
+    expect(classes).to include '::FakeContainer::SomeQuery'
+    expect(classes).to include '::FakeContainer::SomeQuery::Viewer'
 
-    query_class = generator.classes["FakeContainer::SomeQuery"]
+    query_class = generator.classes["::FakeContainer::SomeQuery"]
     expect(query_class).to be_a Yogurt::CodeGenerator::RootClass
-    expect(query_class.name).to eq "FakeContainer::SomeQuery"
+    expect(query_class.name).to eq "::FakeContainer::SomeQuery"
     expect(query_class.operation_name).to eq "SomeQuery"
     expect(query_class.defined_methods.map(&:name)).to eq [:viewer]
     expect(query_class.graphql_type.graphql_name).to eq "Query"
@@ -30,9 +30,9 @@ RSpec.describe Yogurt::CodeGenerator do
     expect(query_class.to_ruby).to include "def pretty_print"
     expect(query_class.to_ruby).to include "def self.execute"
 
-    viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
+    viewer_class = generator.classes["::FakeContainer::SomeQuery::Viewer"]
     expect(viewer_class).to be_a Yogurt::CodeGenerator::LeafClass
-    expect(viewer_class.name).to eq "FakeContainer::SomeQuery::Viewer"
+    expect(viewer_class.name).to eq "::FakeContainer::SomeQuery::Viewer"
     expect(viewer_class.graphql_type.graphql_name).to eq "User"
     expect(viewer_class.to_ruby).to include "def login"
     expect(viewer_class.to_ruby).to include "def created_at"
@@ -65,7 +65,7 @@ RSpec.describe Yogurt::CodeGenerator do
     generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
-    viewer_class = generator.classes["FakeContainer::SomeQuery::Viewer"]
+    viewer_class = generator.classes["::FakeContainer::SomeQuery::Viewer"]
     created_at_method = viewer_class.defined_methods.detect {|dm| dm.name == :created_at}
 
     expect(created_at_method.signature).to eq "Time"
@@ -91,12 +91,12 @@ RSpec.describe Yogurt::CodeGenerator do
     generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
-    query_class = generator.classes["FakeContainer::SomeQuery"]
+    query_class = generator.classes["::FakeContainer::SomeQuery"]
     codes_of_conduct = query_class.defined_methods.detect {|dm| dm.name == :codes_of_conduct}
     expect(codes_of_conduct).to_not be_nil
-    expect(codes_of_conduct.signature).to eq "T.nilable(T::Array[T.nilable(FakeContainer::SomeQuery::CodesOfConduct)])"
+    expect(codes_of_conduct.signature).to eq "T.nilable(T::Array[T.nilable(::FakeContainer::SomeQuery::CodesOfConduct)])"
 
-    subclass = generator.classes["FakeContainer::SomeQuery::CodesOfConduct"]
+    subclass = generator.classes["::FakeContainer::SomeQuery::CodesOfConduct"]
     expect(subclass.graphql_type.graphql_name).to eq "CodeOfConduct"
 
     url_method = subclass.defined_methods.detect {|dm| dm.name == :url}
@@ -125,7 +125,7 @@ RSpec.describe Yogurt::CodeGenerator do
     generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
-    check_run_input = generator.classes['FakeSchema::CreateCheckRunInput']
+    check_run_input = generator.classes['::FakeSchema::CreateCheckRunInput']
     expect(check_run_input).to_not be_nil
     expect(check_run_input).to be_a Yogurt::CodeGenerator::InputClass
     expect(check_run_input.arguments.map(&:name)).to match_array(%i[
@@ -167,7 +167,7 @@ RSpec.describe Yogurt::CodeGenerator do
       end
     STRING
 
-    expect(action_argument.signature).to eq "T.nilable(T::Array[FakeSchema::CheckRunAction])"
+    expect(action_argument.signature).to eq "T.nilable(T::Array[::FakeSchema::CheckRunAction])"
     type_check(generator.contents)
   end
 
@@ -184,12 +184,12 @@ RSpec.describe Yogurt::CodeGenerator do
     generator = Yogurt::CodeGenerator.new(FakeSchema)
     generator.generate(FakeContainer.declared_queries[0])
 
-    query = generator.classes["FakeContainer::AliasedQuery"]
+    query = generator.classes["::FakeContainer::AliasedQuery"]
     me_method = query.defined_methods.detect {|dm| dm.name == :me}
     expect(me_method).to_not be_nil
-    expect(me_method.signature).to eq "FakeContainer::AliasedQuery::Me_Viewer"
+    expect(me_method.signature).to eq "::FakeContainer::AliasedQuery::Me_Viewer"
 
-    me_class = generator.classes["FakeContainer::AliasedQuery::Me_Viewer"]
+    me_class = generator.classes["::FakeContainer::AliasedQuery::Me_Viewer"]
     expect(me_class.defined_methods.map(&:name)).to eq [:type]
     expect(me_class.graphql_type.graphql_name).to eq "User"
 
@@ -233,23 +233,23 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       FakeContainer.declared_queries.each {|declaration| generator.generate(declaration)}
       expect(generator.content_files.map(&:constant_name)).to eq([
-        "FakeContainer::AliasedQuery",
-        "FakeContainer::AliasedQuery::Me_Viewer",
-        "FakeSchema::CheckConclusionState",
-        "FakeSchema::CheckRunAction",
-        "FakeSchema::CheckAnnotationLevel",
-        "FakeSchema::CheckAnnotationRange",
-        "FakeSchema::CheckAnnotationData",
-        "FakeSchema::CheckRunOutputImage",
-        "FakeSchema::CheckRunOutput",
-        "FakeSchema::RequestableCheckStatusState",
-        "FakeSchema::CreateCheckRunInput",
-        "FakeContainer::SampleMutation",
-        "FakeContainer::SampleMutation::CreateCheckRun",
-        "FakeContainer::SampleMutation::CreateCheckRun::CheckRun",
-        "FakeContainer::SampleMutation::PinIssue",
-        "FakeContainer::SomeQuery",
-        "FakeContainer::SomeQuery::Viewer"
+        "::FakeContainer::AliasedQuery",
+        "::FakeContainer::AliasedQuery::Me_Viewer",
+        "::FakeSchema::CheckConclusionState",
+        "::FakeSchema::CheckRunAction",
+        "::FakeSchema::CheckAnnotationLevel",
+        "::FakeSchema::CheckAnnotationRange",
+        "::FakeSchema::CheckAnnotationData",
+        "::FakeSchema::CheckRunOutputImage",
+        "::FakeSchema::CheckRunOutput",
+        "::FakeSchema::RequestableCheckStatusState",
+        "::FakeSchema::CreateCheckRunInput",
+        "::FakeContainer::SampleMutation",
+        "::FakeContainer::SampleMutation::CreateCheckRun",
+        "::FakeContainer::SampleMutation::CreateCheckRun::CheckRun",
+        "::FakeContainer::SampleMutation::PinIssue",
+        "::FakeContainer::SomeQuery",
+        "::FakeContainer::SomeQuery::Viewer"
       ])
     end
   end
@@ -268,7 +268,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       expect(node_class.graphql_type.graphql_name).to eq "Node"
       type_check(generator.contents)
     end
@@ -295,7 +295,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       state_method = node_class.defined_methods.detect {|dm| dm.name == :state}
       expect(state_method).to_not be_nil
       expect(state_method.signature).to start_with "T.nilable("
@@ -303,18 +303,18 @@ RSpec.describe Yogurt::CodeGenerator do
       expect(state_method.branches).to match_array([
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["Project"]),
-          expression: 'FakeSchema::ProjectState.deserialize(raw_result["state"])',
+          expression: '::FakeSchema::ProjectState.deserialize(raw_result["state"])',
         ),
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["ProjectCard"]),
           expression: <<~STRING.strip,
             return if raw_result["state"].nil?
-            FakeSchema::ProjectCardState.deserialize(raw_result["state"])
+            ::FakeSchema::ProjectCardState.deserialize(raw_result["state"])
           STRING
         ),
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["PullRequest"]),
-          expression: 'FakeSchema::PullRequestState.deserialize(raw_result["state"])',
+          expression: '::FakeSchema::PullRequestState.deserialize(raw_result["state"])',
         )
       ])
 
@@ -342,7 +342,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       login_method = node_class.defined_methods.detect {|dm| dm.name == :login}
       expect(login_method.body).to include 'return unless type == "User"'
       expect(login_method.body).to_not include 'type == "Bot"'
@@ -366,7 +366,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      viewer_class = generator.classes["FakeContainer::ViewerQuery::Viewer"]
+      viewer_class = generator.classes["::FakeContainer::ViewerQuery::Viewer"]
       id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
       expect(id_method.signature).to eq "NilClass"
       expect(id_method.body).to end_with "nil\n"
@@ -394,7 +394,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       id_method = node_class.defined_methods.detect {|dm| dm.name == :id}
       expect(id_method.signature).to start_with "T.nilable"
       expect(id_method.body).to include 'return unless type == "Bot" || type == "User"'
@@ -427,7 +427,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
+      viewer_class = generator.classes["::FakeContainer::NodeQuery::Viewer"]
       id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
       expect(id_method.signature).to_not include "T.nilable"
       expect(id_method.body).to_not include "__typename"
@@ -449,7 +449,7 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      viewer_class = generator.classes["FakeContainer::NodeQuery::Viewer"]
+      viewer_class = generator.classes["::FakeContainer::NodeQuery::Viewer"]
       id_method = viewer_class.defined_methods.detect {|dm| dm.name == :id}
       expect(id_method.signature).to_not include "T.nilable"
       type_check(generator.contents)
@@ -486,17 +486,17 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      node_class = generator.classes["FakeContainer::NodeQuery::Node"]
+      node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
       expect(field_method).to_not be_nil
-      expect(field_method.signature).to eq "T.nilable(T.any(FakeContainer::NodeQuery::Node::Field_Actor, FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[FakeSchema::CommentCannotUpdateReason]))"
+      expect(field_method.signature).to eq "T.nilable(T.any(::FakeContainer::NodeQuery::Node::Field_Actor, ::FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[::FakeSchema::CommentCannotUpdateReason]))"
 
       expect(field_method.branches).to match_array([
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CommitComment"]),
           expression: <<~STRING.strip,
             raw_result["field"].map do |raw_value|
-              FakeSchema::CommentCannotUpdateReason.deserialize(raw_value)
+              ::FakeSchema::CommentCannotUpdateReason.deserialize(raw_value)
             end
           STRING
         ),
@@ -511,14 +511,14 @@ RSpec.describe Yogurt::CodeGenerator do
           typenames: Set.new(["CrossReferencedEvent"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
-            FakeContainer::NodeQuery::Node::Field_Actor.new(raw_result["field"])
+            ::FakeContainer::NodeQuery::Node::Field_Actor.new(raw_result["field"])
           STRING
         ),
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["AddedToProjectEvent"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
-            FakeContainer::NodeQuery::Node::Field_ProjectCard.new(raw_result["field"])
+            ::FakeContainer::NodeQuery::Node::Field_ProjectCard.new(raw_result["field"])
           STRING
         )
       ])
@@ -562,13 +562,13 @@ RSpec.describe Yogurt::CodeGenerator do
       generator = Yogurt::CodeGenerator.new(FakeSchema)
       generator.generate(FakeContainer.declared_queries[0])
 
-      project_card_class = generator.classes["FakeContainer::NodeQuery::Node::ProjectCard"]
+      project_card_class = generator.classes["::FakeContainer::NodeQuery::Node::ProjectCard"]
 
       # It should have methods for all of the fragments that are spread
       expect(project_card_class.defined_methods.map(&:name)).to match_array(%i[creator created_at note])
 
       # It should have paths to the `id` of the `creator` that match each of the fragments
-      project_card_creator_class = generator.classes["FakeContainer::NodeQuery::Node::ProjectCard::Creator"]
+      project_card_creator_class = generator.classes["::FakeContainer::NodeQuery::Node::ProjectCard::Creator"]
       url_method = project_card_creator_class.defined_methods.detect {|dm| dm.name == :url}
       expect(url_method).to_not be_nil
       expect(url_method.field_access_paths.map(&:fragment_types)).to match_array([
