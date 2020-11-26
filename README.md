@@ -1,15 +1,18 @@
-# Graphql::Sorbet::Client
+# Yogurt
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/graphql/sorbet/client`. To experiment with that code, run `bin/console` for an interactive prompt.
+👋 Hey. This Rubygem is a GraphQL client, written using Sorbet. It lets you write GraphQL queries that are colocated with
+your code, and it generates strongly-typed classes for the results using Sorbet. The general idea is that if you’re using
+Sorbet to help avoid errors in your code, it’d be nice to extend that to data retrieved from GraphQL API’s.
 
-TODO: Delete this and the text above, and describe your gem
+This gem is still in a fairly early stage of development. It doesn’t supported named fragments. And I probably got a lot
+of the decisions wrong in building it. So at some point, I’ll likely revisit those decisions and make substantial changes.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'graphql-sorbet-client'
+gem 'yogurt'
 ```
 
 And then execute:
@@ -18,7 +21,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install graphql-sorbet-client
+    $ gem install yogurt
 
 ## Usage
 
@@ -32,4 +35,4 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/graphql-sorbet-client.
+Bug reports and pull requests are welcome on GitHub at https://github.com/theorygeek/yogurt.

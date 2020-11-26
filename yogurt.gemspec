@@ -7,7 +7,7 @@ require 'graphql'
 require 'graphql_client'
 
 Gem::Specification.new do |spec|
-  spec.name = "graphql-sorbet-client"
+  spec.name = "yogurt"
   spec.version = GraphQLClient::VERSION
   spec.authors = ["Ryan Foster"]
   spec.email = ["theorygeek@gmail.com"]
@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
     GraphQL client with Sorbet typing.
   STRING
 
-  spec.homepage = "https://github.com/theorygeek/graphql-sorbet-client"
+  spec.homepage = "https://github.com/theorygeek/yogurt"
 
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
   # to allow pushing to a single host or delete this section to allow pushing to any host.
@@ -25,7 +25,7 @@ Gem::Specification.new do |spec|
 
     spec.metadata["homepage_uri"] = spec.homepage
     spec.metadata["source_code_uri"] = spec.homepage
-    spec.metadata["changelog_uri"] = "https://github.com/theorygeek/graphql-sorbet-client/blob/master/CHANGELOG.md"
+    spec.metadata["changelog_uri"] = "https://github.com/theorygeek/yogurt/blob/master/CHANGELOG.md"
   end
 
   # Specify which files should be added to the gem when it is released.
