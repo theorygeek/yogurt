@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    graphql-sorbet-client (0.1.0)
+    graphql-sorbet-client (0.1.1)
       graphql
       sorbet-runtime
       zeitwerk
