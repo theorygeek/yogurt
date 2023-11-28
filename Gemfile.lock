@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    yogurt (0.2.0)
+    yogurt (0.3.0)
       graphql
       sorbet-runtime
       zeitwerk
