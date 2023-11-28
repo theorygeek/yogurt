@@ -13,7 +13,7 @@ RSpec.describe Yogurt::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = Yogurt::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
     generator.generate(FakeContainer.declared_queries[0])
 
     classes = generator.classes
@@ -62,7 +62,7 @@ RSpec.describe Yogurt::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = Yogurt::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
     generator.generate(FakeContainer.declared_queries[0])
 
     viewer_class = generator.classes["::FakeContainer::SomeQuery::Viewer"]
@@ -88,7 +88,7 @@ RSpec.describe Yogurt::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = Yogurt::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
     generator.generate(FakeContainer.declared_queries[0])
 
     query_class = generator.classes["::FakeContainer::SomeQuery"]
@@ -122,7 +122,7 @@ RSpec.describe Yogurt::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = Yogurt::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
     generator.generate(FakeContainer.declared_queries[0])
 
     check_run_input = generator.classes['::FakeSchema::CreateCheckRunInput']
@@ -181,7 +181,7 @@ RSpec.describe Yogurt::CodeGenerator do
     GRAPHQL
 
     FakeContainer.declare_query(query_text)
-    generator = Yogurt::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
     generator.generate(FakeContainer.declared_queries[0])
 
     query = generator.classes["::FakeContainer::AliasedQuery"]
@@ -230,19 +230,19 @@ RSpec.describe Yogurt::CodeGenerator do
         }
       GRAPHQL
 
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       FakeContainer.declared_queries.each {|declaration| generator.generate(declaration)}
-      expect(generator.content_files.map(&:constant_name)).to eq([
+      expect(generator.content_files.map(&:constant_name).sort).to eq([
         "::FakeContainer::AliasedQuery",
         "::FakeContainer::AliasedQuery::Me_Viewer",
-        "::FakeSchema::CheckConclusionState",
+        "::GeneratedCode::CheckConclusionState",
         "::FakeSchema::CheckRunAction",
-        "::FakeSchema::CheckAnnotationLevel",
+        "::GeneratedCode::CheckAnnotationLevel",
         "::FakeSchema::CheckAnnotationRange",
         "::FakeSchema::CheckAnnotationData",
         "::FakeSchema::CheckRunOutputImage",
         "::FakeSchema::CheckRunOutput",
-        "::FakeSchema::RequestableCheckStatusState",
+        "::GeneratedCode::RequestableCheckStatusState",
         "::FakeSchema::CreateCheckRunInput",
         "::FakeContainer::SampleMutation",
         "::FakeContainer::SampleMutation::CreateCheckRun",
@@ -250,7 +250,7 @@ RSpec.describe Yogurt::CodeGenerator do
         "::FakeContainer::SampleMutation::PinIssue",
         "::FakeContainer::SomeQuery",
         "::FakeContainer::SomeQuery::Viewer"
-      ])
+      ].sort)
     end
   end
 
@@ -265,7 +265,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
@@ -292,7 +292,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
@@ -303,18 +303,18 @@ RSpec.describe Yogurt::CodeGenerator do
       expect(state_method.branches).to match_array([
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["Project"]),
-          expression: '::FakeSchema::ProjectState.deserialize(raw_result["state"])',
+          expression: '::GeneratedCode::ProjectState.deserialize(raw_result["state"])',
         ),
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["ProjectCard"]),
           expression: <<~STRING.strip,
             return if raw_result["state"].nil?
-            ::FakeSchema::ProjectCardState.deserialize(raw_result["state"])
+            ::GeneratedCode::ProjectCardState.deserialize(raw_result["state"])
           STRING
         ),
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["PullRequest"]),
-          expression: '::FakeSchema::PullRequestState.deserialize(raw_result["state"])',
+          expression: '::GeneratedCode::PullRequestState.deserialize(raw_result["state"])',
         )
       ])
 
@@ -339,7 +339,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
@@ -363,7 +363,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       viewer_class = generator.classes["::FakeContainer::ViewerQuery::Viewer"]
@@ -391,7 +391,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
@@ -424,7 +424,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       viewer_class = generator.classes["::FakeContainer::NodeQuery::Viewer"]
@@ -446,7 +446,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       viewer_class = generator.classes["::FakeContainer::NodeQuery::Viewer"]
@@ -483,20 +483,20 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
       expect(field_method).to_not be_nil
-      expect(field_method.signature).to eq "T.nilable(T.any(::FakeContainer::NodeQuery::Node::Field_Actor, ::FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[::FakeSchema::CommentCannotUpdateReason]))"
+      expect(field_method.signature).to eq "T.nilable(T.any(::FakeContainer::NodeQuery::Node::Field_Actor, ::FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[::GeneratedCode::CommentCannotUpdateReason]))"
 
       expect(field_method.branches).to match_array([
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["CommitComment"]),
           expression: <<~STRING.strip,
             raw_result["field"].map do |raw_value|
-              ::FakeSchema::CommentCannotUpdateReason.deserialize(raw_value)
+              ::GeneratedCode::CommentCannotUpdateReason.deserialize(raw_value)
             end
           STRING
         ),
@@ -559,7 +559,7 @@ RSpec.describe Yogurt::CodeGenerator do
       GRAPHQL
 
       FakeContainer.declare_query(query_text)
-      generator = Yogurt::CodeGenerator.new(FakeSchema)
+      generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
       generator.generate(FakeContainer.declared_queries[0])
 
       project_card_class = generator.classes["::FakeContainer::NodeQuery::Node::ProjectCard"]

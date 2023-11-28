@@ -7,6 +7,10 @@ require 'yogurt'
 require_relative 'support/type_check'
 require_relative 'support/fake_executor'
 
+module GeneratedCode
+  # containing module for generated code
+end
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"

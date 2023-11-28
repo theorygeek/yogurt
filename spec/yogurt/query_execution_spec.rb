@@ -6,7 +6,7 @@ RSpec.describe "QueryResult.execute" do
     Yogurt.register_scalar(FakeSchema, "DateTime", Yogurt::Converters::Time)
 
     FakeContainer.declare_query(query_text)
-    generator = Yogurt::CodeGenerator.new(FakeSchema)
+    generator = Yogurt::CodeGenerator.new(FakeSchema, GeneratedCode)
     generator.generate(FakeContainer.declared_queries[0])
     type_check(generator.contents)
     eval(generator.contents) # rubocop:disable Security/Eval
