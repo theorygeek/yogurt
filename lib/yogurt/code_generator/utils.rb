@@ -127,7 +127,7 @@ module Yogurt
         STRING
 
         <<~STRING
-          sig {override.params(p: PP::PPMethods).void}
+          sig {override.params(p: T.untyped).void}
           def pretty_print(p)
             p.object_group(self) do
               #{indent(object_group, 2).strip}

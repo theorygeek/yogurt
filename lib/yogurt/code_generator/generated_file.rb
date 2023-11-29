@@ -43,8 +43,6 @@ module Yogurt
           # typed: strict
           # frozen_string_literal: true
 
-          require 'pp'
-
           #{code}
         STRING
       end
