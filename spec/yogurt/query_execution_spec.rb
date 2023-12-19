@@ -182,4 +182,43 @@ RSpec.describe "QueryResult.execute" do
 
     expect(result.change_user_status.client_mutation_id).to eq 'some_client_mutation_id'
   end
+
+  it "can convert float values" do
+    query_text = <<~'GRAPHQL'
+      query EnterpriseQuery {
+        enterprise(slug: "your-enterprise-slug") {
+          billingInfo {
+            bandwidthQuota
+            bandwidthUsage
+          }
+        }
+      }
+    GRAPHQL
+
+    input_time = Time.new(2020, 11, 30, 12, 0, 0).utc
+    expect(FakeExecutor::Instance)
+      .to receive(:execute)
+      .with(
+        query_text,
+        operation_name: 'EnterpriseQuery',
+        options: nil,
+        variables: nil
+      )
+      .and_return({
+        "data" => {
+          "enterprise" => {
+            "billingInfo" => {
+              "bandwidthQuota" => 10,
+              "bandwidthUsage" => 8.2,
+            }
+          }
+        }
+      })
+
+    declare_query(query_text)
+    result = FakeContainer::EnterpriseQuery.execute()
+
+    expect(result.enterprise.billing_info.bandwidth_quota).to eq 10
+    expect(result.enterprise.billing_info.bandwidth_usage).to eq 8.2
+  end
 end

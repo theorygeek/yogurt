@@ -495,7 +495,7 @@ module Yogurt
       elsif graphql_type == GraphQL::Types::Float
         TypedOutput.new(
           signature: "Float",
-          deserializer: 'T.cast(raw_value, Float)',
+          deserializer: 'T.cast(raw_value, T.any(Integer, Float)).to_f',
         )
       elsif graphql_type == GraphQL::Types::String
         TypedOutput.new(
