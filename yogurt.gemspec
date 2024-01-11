@@ -41,6 +41,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency('graphql')
   spec.add_dependency('sorbet-runtime')
   spec.add_dependency('zeitwerk')
+  spec.add_dependency('activesupport')
 
   spec.add_development_dependency('benchmark-ips')
   spec.add_development_dependency('bundler')

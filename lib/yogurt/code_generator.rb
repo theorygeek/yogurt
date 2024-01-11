@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require 'active_support/inflector'
+
 module Yogurt
   class CodeGenerator
     extend T::Sig
@@ -138,7 +140,7 @@ module Yogurt
       enum_class_name = @enums[enum_type.graphql_name]
       return enum_class_name if enum_class_name
 
-      klass_name = "::#{@generated_code_module.name}::#{enum_type.graphql_name}"
+      klass_name = "::#{@generated_code_module.name}::#{enum_type.graphql_name}".underscore.camelize
       add_class(EnumClass.new(name: klass_name, serialized_values: enum_type.values.keys))
       @enums[enum_type.graphql_name] = klass_name
     end
@@ -148,7 +150,7 @@ module Yogurt
       input_class_name = @input_types[graphql_name]
       return input_class_name if input_class_name
 
-      klass_name = "::#{schema.name}::#{graphql_name}"
+      klass_name = "::#{schema.name}::#{graphql_name}".underscore.camelize
       graphql_type = schema.types[graphql_name]
 
       arguments = graphql_type.arguments.each_value.map do |argument|
@@ -170,6 +172,7 @@ module Yogurt
         .returns(TypedOutput)
     end
     private def generate_result_class(module_name, owner_type, selections, operation_declaration: nil, dependencies: [])
+      module_name = module_name.underscore.camelize
       methods = T.let({}, T::Hash[Symbol, T::Array[FieldAccessPath]])
       next_dependencies = [module_name, *dependencies]
 

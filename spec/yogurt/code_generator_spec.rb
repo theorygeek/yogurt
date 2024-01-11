@@ -187,9 +187,9 @@ RSpec.describe Yogurt::CodeGenerator do
     query = generator.classes["::FakeContainer::AliasedQuery"]
     me_method = query.defined_methods.detect {|dm| dm.name == :me}
     expect(me_method).to_not be_nil
-    expect(me_method.signature).to eq "::FakeContainer::AliasedQuery::Me_Viewer"
+    expect(me_method.signature).to eq "::FakeContainer::AliasedQuery::MeViewer"
 
-    me_class = generator.classes["::FakeContainer::AliasedQuery::Me_Viewer"]
+    me_class = generator.classes["::FakeContainer::AliasedQuery::MeViewer"]
     expect(me_class.defined_methods.map(&:name)).to eq [:type]
     expect(me_class.graphql_type.graphql_name).to eq "User"
 
@@ -234,7 +234,7 @@ RSpec.describe Yogurt::CodeGenerator do
       FakeContainer.declared_queries.each {|declaration| generator.generate(declaration)}
       expect(generator.content_files.map(&:constant_name).sort).to eq([
         "::FakeContainer::AliasedQuery",
-        "::FakeContainer::AliasedQuery::Me_Viewer",
+        "::FakeContainer::AliasedQuery::MeViewer",
         "::GeneratedCode::CheckConclusionState",
         "::FakeSchema::CheckRunAction",
         "::GeneratedCode::CheckAnnotationLevel",
@@ -489,7 +489,7 @@ RSpec.describe Yogurt::CodeGenerator do
       node_class = generator.classes["::FakeContainer::NodeQuery::Node"]
       field_method = node_class.defined_methods.detect {|dm| dm.name == :field}
       expect(field_method).to_not be_nil
-      expect(field_method.signature).to eq "T.nilable(T.any(::FakeContainer::NodeQuery::Node::Field_Actor, ::FakeContainer::NodeQuery::Node::Field_ProjectCard, Integer, T::Array[::GeneratedCode::CommentCannotUpdateReason]))"
+      expect(field_method.signature).to eq "T.nilable(T.any(::FakeContainer::NodeQuery::Node::FieldActor, ::FakeContainer::NodeQuery::Node::FieldProjectCard, Integer, T::Array[::GeneratedCode::CommentCannotUpdateReason]))"
 
       expect(field_method.branches).to match_array([
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
@@ -511,14 +511,14 @@ RSpec.describe Yogurt::CodeGenerator do
           typenames: Set.new(["CrossReferencedEvent"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
-            ::FakeContainer::NodeQuery::Node::Field_Actor.new(raw_result["field"])
+            ::FakeContainer::NodeQuery::Node::FieldActor.new(raw_result["field"])
           STRING
         ),
         Yogurt::CodeGenerator::FieldAccessMethod::FragmentBranch.new(
           typenames: Set.new(["AddedToProjectEvent"]),
           expression: <<~STRING.strip,
             return if raw_result["field"].nil?
-            ::FakeContainer::NodeQuery::Node::Field_ProjectCard.new(raw_result["field"])
+            ::FakeContainer::NodeQuery::Node::FieldProjectCard.new(raw_result["field"])
           STRING
         )
       ])
