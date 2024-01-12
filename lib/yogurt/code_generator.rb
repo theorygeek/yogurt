@@ -150,7 +150,7 @@ module Yogurt
       input_class_name = @input_types[graphql_name]
       return input_class_name if input_class_name
 
-      klass_name = "::#{schema.name}::#{graphql_name}".underscore.camelize
+      klass_name = "::#{@generated_code_module.name}::#{graphql_name}".underscore.camelize
       graphql_type = schema.types[graphql_name]
 
       arguments = graphql_type.arguments.each_value.map do |argument|
